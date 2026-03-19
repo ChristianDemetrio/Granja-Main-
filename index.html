@@ -126,6 +126,16 @@
         </div>
         <div id="iLotesResume"></div>
       </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Total por Lote</div>
+          <div class="card-sub" id="iLoteTotalSub">produção acumulada</div>
+        </div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="inicioLoteChart"></canvas>
+        </div>
+      </div>
     </div>
 
     <!-- BOTTOM ROW: Últimos registros + Estoque + Alerta -->
@@ -224,12 +234,17 @@
         <div class="card-header">
           <div>
             <div class="card-title">Produção — Últimos 7 dias</div>
-            <div class="card-sub">ovos coletados por dia</div>
+            <div class="card-sub" id="prodChartSub">ovos coletados por dia</div>
           </div>
-          <div class="tabs">
-            <div class="tab active" onclick="switchTab(this,'7')">7d</div>
-            <div class="tab" onclick="switchTab(this,'14')">14d</div>
-            <div class="tab" onclick="switchTab(this,'30')">30d</div>
+          <div style="display:flex;gap:12px;align-items:center">
+            <select class="form-select" id="prodLoteFilter" onchange="updateProdChartByLote();" style="margin:0;flex:1;max-width:200px">
+              <option value="todos">📊 Todos os lotes</option>
+            </select>
+            <div class="tabs">
+              <div class="tab active" onclick="switchTab(this,'7')">7d</div>
+              <div class="tab" onclick="switchTab(this,'14')">14d</div>
+              <div class="tab" onclick="switchTab(this,'30')">30d</div>
+            </div>
           </div>
         </div>
         <div class="chart-wrap">

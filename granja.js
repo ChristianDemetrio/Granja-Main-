@@ -13,6 +13,7 @@ const LOT_COLORS = ['#f5a623','#2ed573','#4dabf7','#ff6b81','#a29bfe','#ffeaa7',
 
 // ========== STATE (cache em memória) ==========
 let state = { lotes: [], producao: [], saidas: [], despesas: [], mortalidade: [] };
+let currentProdDays = 7; // Armazenar dias atual para o gráfico de produção
 
 // =============================================================================
 // DB — CAMADA DE ACESSO AO SUPABASE
@@ -213,6 +214,7 @@ function setBtnLoading(id, loading, label) {
 // RENDER INÍCIO
 // =============================================================================
 let inicioChart = null;
+let inicioLoteChart = null;
 
 function renderInicio() {
   const h = new Date().getHours();
@@ -307,6 +309,47 @@ function renderInicio() {
     }).join('');
   }
 
+  // Gráfico de lotes por produção total
+  if (inicioLoteChart) inicioLoteChart.destroy();
+  const ctxLote = document.getElementById('inicioLoteChart').getContext('2d');
+  if (state.lotes.length === 0) {
+    document.getElementById('iLoteTotalSub').textContent = 'nenhum lote cadastrado';
+  } else {
+    const loteLabels = state.lotes.map(l => l.nome);
+    const loteTotais = state.lotes.map((l, i) => ({
+      label: l.nome,
+      value: state.producao.filter(p => p.lote === l.id).reduce((s, p) => s + p.ovos, 0),
+      color: getColorByIdx(i)
+    }));
+    const loteData = loteTotais.map(l => l.value);
+    const loteColors = loteTotais.map(l => l.color);
+    const totalLote = loteData.reduce((s, v) => s + v, 0);
+    document.getElementById('iLoteTotalSub').textContent = `${formatNum(totalLote)} ovos produzidos`;
+    
+    inicioLoteChart = new Chart(ctxLote, {
+      type: 'bar',
+      data: {
+        labels: loteLabels,
+        datasets: [{
+          data: loteData,
+          backgroundColor: loteColors,
+          borderColor: loteColors,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: '#2a3048' }, ticks: { color: '#6b7593', font: { size: 11 }, callback: v => formatNum(v) }, beginAtZero: true },
+          y: { grid: { display: false }, ticks: { color: '#6b7593', font: { size: 11 } } }
+        }
+      }
+    });
+  }
+
   // Últimos registros
   const grouped={};
   state.producao.forEach(p=>{ if(!grouped[p.data]) grouped[p.data]={ovos:0,quebrados:0}; grouped[p.data].ovos+=p.ovos; grouped[p.data].quebrados+=p.quebrados; });
@@ -347,18 +390,18 @@ function renderProducao(days=7) {
   semVar.textContent=(varPct>=0?'▲ +':'▼ ')+varPct+'% vs anterior';
   semVar.className='stat-badge '+(varPct>=0?'badge-up':'badge-down');
 
-  const chartDates=getRecentDates(days); const chartData=chartDates.map(d=>getTotalByDate(d));
-  const chartLabels=chartDates.map(d=>fmtDate(d).slice(0,5));
-  if (chartInstance) chartInstance.destroy();
-  const ctx=document.getElementById('prodChart').getContext('2d');
-  const gradient=ctx.createLinearGradient(0,0,0,200);
-  gradient.addColorStop(0,'rgba(245,166,35,0.3)'); gradient.addColorStop(1,'rgba(245,166,35,0)');
-  chartInstance=new Chart(ctx,{
-    type:'line',
-    data:{labels:chartLabels,datasets:[{data:chartData,borderColor:'#f5a623',backgroundColor:gradient,fill:true,tension:0.4,pointBackgroundColor:'#f5a623',pointRadius:4,pointHoverRadius:6,borderWidth:2.5}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:{grid:{color:'#2a3048'},ticks:{color:'#6b7593',font:{size:11}}},y:{grid:{color:'#2a3048'},ticks:{color:'#6b7593',font:{size:11},callback:v=>formatNum(v)},beginAtZero:false}}}
-  });
+  // Preencher selector de lotes
+  const selectLote = document.getElementById('prodLoteFilter');
+  if (selectLote) {
+    selectLote.innerHTML = '<option value="todos">📊 Todos os lotes</option>';
+    state.lotes.forEach((l, i) => {
+      const color = getColorByIdx(i);
+      selectLote.innerHTML += `<option value="${l.id}" data-color="${color}">🔷 ${l.nome}</option>`;
+    });
+  }
+
+  // Renderizar gráfico (chama a função que mostra por lote)
+  updateProdChartByLote(days);
 
   const lotesDiv=document.getElementById('lotesResume');
   if(state.lotes.length===0){
@@ -387,14 +430,113 @@ function renderProducao(days=7) {
   tbody.innerHTML=sortedDates.map(d=>{
     const total=grouped[d].reduce((s,p)=>s+p.ovos,0);
     const quebrados=grouped[d].reduce((s,p)=>s+p.quebrados,0);
+    const loteDetails = grouped[d].map(p => {
+      const lote = state.lotes.find(l => l.id === p.lote);
+      return { id: p.lote, nome: lote?.nome || '?', ovos: p.ovos };
+    });
     const loteCount=[...new Set(grouped[d].map(p=>p.lote))].length;
     const taxa2=totalGalinhas()>0?((total/totalGalinhas())*100).toFixed(1):'0.0';
     const rateClass=parseFloat(taxa2)>=85?'rate-good':parseFloat(taxa2)>=70?'rate-warn':'rate-bad';
-    return `<tr><td class="td-date">${fmtDate(d)}</td><td class="td-total">${formatNum(total)}</td><td><span class="badge-broken">${quebrados}</span></td><td class="td-rate ${rateClass}">${taxa2}%</td><td><span class="badge-lotes">${loteCount} lotes</span></td><td><button class="btn btn-ghost" style="padding:6px 12px;font-size:11px" onclick="deleteDate('${d}')">🗑</button></td></tr>`;
+    const lotesSummary = loteDetails.map(l => `<span class="badge-lotes" style="background:${getColorByIdx(state.lotes.findIndex(x=>x.id===l.id))};opacity:0.9">${l.nome}: ${formatNum(l.ovos)}</span>`).join(' ');
+    return `<tr><td class="td-date">${fmtDate(d)}</td><td class="td-total">${formatNum(total)}</td><td><span class="badge-broken">${quebrados}</span></td><td class="td-rate ${rateClass}">${taxa2}%</td><td style="font-size:11px;display:flex;gap:4px;flex-wrap:wrap">${lotesSummary}</td><td><button class="btn btn-ghost" style="padding:6px 12px;font-size:11px" onclick="deleteDate('${d}')">🗑</button></td></tr>`;
   }).join('');
 }
 
-function switchTab(el,days){ el.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); renderProducao(parseInt(days)); }
+function switchTab(el,days){ el.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); currentProdDays=parseInt(days); renderProducao(parseInt(days)); }
+
+function updateProdChartByLote(days=7) {
+  const selectedLoteId = document.getElementById('prodLoteFilter')?.value || 'todos';
+  const chartDates = getRecentDates(days);
+  const chartLabels = chartDates.map(d => fmtDate(d).slice(0, 5));
+  
+  if (chartInstance) chartInstance.destroy();
+  const ctx = document.getElementById('prodChart').getContext('2d');
+  
+  if (selectedLoteId === 'todos') {
+    // Mostrar todos os lotes em um gráfico de barras agrupadas
+    const datasets = state.lotes.map((lote, idx) => {
+      const color = getColorByIdx(idx);
+      const data = chartDates.map(date => {
+        return state.producao
+          .filter(p => p.data === date && p.lote === lote.id)
+          .reduce((sum, p) => sum + p.ovos, 0);
+      });
+      return {
+        label: lote.nome,
+        data: data,
+        borderColor: color,
+        backgroundColor: color + '40',
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: color,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderWidth: 2.5
+      };
+    });
+    
+    const subtitle = `${state.lotes.length} lotes - ovos coletados por dia`;
+    document.getElementById('prodChartSub').textContent = subtitle;
+    
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: { labels: chartLabels, datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'bottom' } },
+        scales: {
+          x: { grid: { color: '#2a3048' }, ticks: { color: '#6b7593', font: { size: 11 } } },
+          y: { grid: { color: '#2a3048' }, ticks: { color: '#6b7593', font: { size: 11 }, callback: v => formatNum(v) }, beginAtZero: false }
+        }
+      }
+    });
+  } else {
+    // Mostrar apenas o lote selecionado
+    const loteId = parseInt(selectedLoteId);
+    const lote = state.lotes.find(l => l.id === loteId);
+    const color = getColorByIdx(state.lotes.findIndex(l => l.id === loteId));
+    const data = chartDates.map(date => {
+      return state.producao
+        .filter(p => p.data === date && p.lote === loteId)
+        .reduce((sum, p) => sum + p.ovos, 0);
+    });
+    
+    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+    gradient.addColorStop(0, color + '50');
+    gradient.addColorStop(1, color + '00');
+    
+    const subtitle = `${lote?.nome || 'Lote'} - ovos coletados por dia`;
+    document.getElementById('prodChartSub').textContent = subtitle;
+    
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: chartLabels,
+        datasets: [{
+          data: data,
+          borderColor: color,
+          backgroundColor: gradient,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: color,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderWidth: 2.5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: '#2a3048' }, ticks: { color: '#6b7593', font: { size: 11 } } },
+          y: { grid: { color: '#2a3048' }, ticks: { color: '#6b7593', font: { size: 11 }, callback: v => formatNum(v) }, beginAtZero: false }
+        }
+      }
+    });
+  }
+}
 
 function openModal() {
   if(state.lotes.length===0){ showToast('error','Cadastre um lote primeiro!'); return; }
