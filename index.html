@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GranjaControl — Gestão de Produção</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="granja.css">
+</head>
+<body class="lote-colors">
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">🥚</div>
+    <div>
+      <div class="logo-text">GranjaControl</div>
+      <div class="logo-sub">v2.0</div>
+    </div>
+  </div>
+  <nav class="nav">
+    <div class="nav-item active" onclick="navigate('inicio')">
+      <span class="nav-icon">🏠</span> Início
+    </div>
+    <div class="nav-item" onclick="navigate('producao')">
+      <span class="nav-icon">🥚</span> Produção
+    </div>
+    <div class="nav-item" onclick="navigate('despesas')">
+      <span class="nav-icon">💰</span> Despesas
+    </div>
+    <div class="nav-item" onclick="navigate('estoque')">
+      <span class="nav-icon">📦</span> Estoque
+    </div>
+    <div class="nav-item" onclick="navigate('relatorios')">
+      <span class="nav-icon">📈</span> Relatórios
+    </div>
+    <div class="nav-item" onclick="navigate('lotes')">
+      <span class="nav-icon">🐔</span> Lotes
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    🌾 Granja Demo &nbsp;·&nbsp; Atualizado agora
+  </div>
+</div>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- PAGE: INÍCIO -->
+  <div class="page active" id="page-inicio">
+    <div class="topbar">
+      <div>
+        <div class="page-title" id="inicioBemVindo">Bom dia! 🌾</div>
+        <div class="page-subtitle">Visão geral da Granja Demo</div>
+      </div>
+      <button class="btn btn-primary" onclick="navigate('producao');openModal()">
+        ＋ Registrar Produção
+      </button>
+    </div>
+
+    <!-- HERO STATS -->
+    <div class="stats-grid" style="margin-bottom:24px">
+      <div class="stat-card orange">
+        <div class="stat-label">Hoje</div>
+        <div class="stat-value orange" id="iStatHoje">—</div>
+        <div class="stat-sub">ovos coletados</div>
+        <div class="stat-badge" id="iStatHojeBadge">— vs ontem</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Esta Semana</div>
+        <div class="stat-value green" id="iStatSemana">—</div>
+        <div class="stat-sub">ovos coletados</div>
+        <div class="stat-badge badge-up" id="iStatSemanaBadge">▲ calculando...</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">Taxa de Postura</div>
+        <div class="stat-value blue" id="iStatTaxa">—</div>
+        <div class="stat-sub">média hoje</div>
+        <div class="stat-badge" id="iStatTaxaBadge">▲ boa</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Ovos Quebrados</div>
+        <div class="stat-value red" id="iStatQuebra">—</div>
+        <div class="stat-sub">total hoje</div>
+      </div>
+    </div>
+
+    <!-- QUICK ACTIONS -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+      <div class="quick-action" onclick="navigate('producao');openModal()">
+        <div class="qa-icon" style="background:rgba(245,166,35,0.15);color:var(--accent)">🥚</div>
+        <div class="qa-label">Registrar Produção</div>
+      </div>
+      <div class="quick-action" onclick="navigate('lotes');openLoteModal()">
+        <div class="qa-icon" style="background:rgba(46,213,115,0.12);color:var(--green)">🐔</div>
+        <div class="qa-label">Novo Lote</div>
+      </div>
+      <div class="quick-action" onclick="navigate('estoque');openEstoqueModal()">
+        <div class="qa-icon" style="background:rgba(77,171,247,0.12);color:var(--blue)">📦</div>
+        <div class="qa-label">Saída de Estoque</div>
+      </div>
+      <div class="quick-action" onclick="navigate('despesas');openDespesaModal()">
+        <div class="qa-icon" style="background:rgba(255,71,87,0.12);color:var(--red)">💰</div>
+        <div class="qa-label">Nova Despesa</div>
+      </div>
+    </div>
+
+    <!-- CHART + RESUMO LOTES -->
+    <div class="content-grid" style="margin-bottom:24px">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Produção — Últimos 7 dias</div>
+            <div class="card-sub" id="iChartSub">ovos coletados por dia</div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="inicioChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Resumo dos Lotes</div>
+          <div style="font-size:12px;color:var(--muted)" id="iLoteCount">— lotes ativos</div>
+        </div>
+        <div id="iLotesResume"></div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ROW: Últimos registros + Estoque + Alerta -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">
+      <!-- Últimos registros -->
+      <div class="card" style="grid-column:span 2">
+        <div class="card-header">
+          <div class="card-title">Últimos Registros</div>
+          <button class="btn btn-ghost" style="font-size:12px;padding:7px 14px" onclick="navigate('producao')">Ver todos →</button>
+        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding:0 0 10px;font-weight:600">Data</th>
+              <th style="text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding:0 0 10px;font-weight:600">Ovos</th>
+              <th style="text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding:0 0 10px;font-weight:600">Quebrados</th>
+              <th style="text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding:0 0 10px;font-weight:600">Taxa</th>
+            </tr>
+          </thead>
+          <tbody id="iRecentBody"></tbody>
+        </table>
+        <div class="empty" id="iEmptyRecent" style="display:none;padding:30px">
+          <div class="empty-icon" style="font-size:32px">🥚</div>
+          <div class="empty-text">Nenhum registro ainda.</div>
+        </div>
+      </div>
+
+      <!-- Painel lateral: estoque + galinhas -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card" style="flex:1">
+          <div class="card-title" style="margin-bottom:16px">📦 Estoque</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Saldo atual</div>
+          <div style="font-size:26px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent)" id="iSaldoEstoque">0</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">ovos disponíveis</div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Total galinhas</div>
+            <div style="font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--green)" id="iTotalGalinhas">0</div>
+          </div>
+        </div>
+        <div class="card" style="flex:1">
+          <div class="card-title" style="margin-bottom:12px">💰 Despesas (mês)</div>
+          <div style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--red)" id="iDespMes">R$ 0</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">custo total do mês</div>
+          <div style="margin-top:10px">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:3px">Custo por ovo</div>
+            <div style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--blue)" id="iCustoOvo">R$ —</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: PRODUÇÃO -->
+  <div class="page" id="page-producao">
+    <div class="topbar">
+      <div>
+        <div class="page-title">Produção de Ovos</div>
+        <div class="page-subtitle">Registre e acompanhe a produção diária</div>
+      </div>
+      <button class="btn btn-primary" onclick="openModal()">
+        ＋ Registrar Produção
+      </button>
+    </div>
+
+    <div id="alertArea"></div>
+
+    <!-- STATS -->
+    <div class="stats-grid">
+      <div class="stat-card orange">
+        <div class="stat-label">Hoje</div>
+        <div class="stat-value orange" id="statHoje">—</div>
+        <div class="stat-sub">ovos coletados</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Esta Semana</div>
+        <div class="stat-value green" id="statSemana">—</div>
+        <div class="stat-sub">ovos coletados</div>
+        <div class="stat-badge badge-up" id="statVarSemana">▲ calculando...</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">Taxa de Postura</div>
+        <div class="stat-value blue" id="statTaxa">—</div>
+        <div class="stat-sub">média hoje</div>
+        <div class="stat-badge badge-up" id="statTaxaBadge">▲ boa</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Quebrados</div>
+        <div class="stat-value red" id="statQuebrados">—</div>
+        <div class="stat-sub">total hoje</div>
+      </div>
+    </div>
+
+    <!-- CHART + LOTES -->
+    <div class="content-grid">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Produção — Últimos 7 dias</div>
+            <div class="card-sub">ovos coletados por dia</div>
+          </div>
+          <div class="tabs">
+            <div class="tab active" onclick="switchTab(this,'7')">7d</div>
+            <div class="tab" onclick="switchTab(this,'14')">14d</div>
+            <div class="tab" onclick="switchTab(this,'30')">30d</div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="prodChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Lotes Ativos</div>
+        </div>
+        <div id="lotesResume"></div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Histórico de Produção</div>
+          <div class="card-sub" id="histCount">— registros</div>
+        </div>
+        <button class="btn btn-ghost" onclick="exportCSV()">⬇ Exportar CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Total de Ovos</th>
+              <th>Quebrados</th>
+              <th>Taxa Postura</th>
+              <th>Lotes</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+        <div class="empty" id="emptyHistory" style="display:none">
+          <div class="empty-icon">🥚</div>
+          <div class="empty-text">Nenhum registro ainda. Registre sua primeira produção!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: LOTES -->
+  <div class="page" id="page-lotes">
+    <div class="topbar">
+      <div>
+        <div class="page-title">Gerenciar Lotes</div>
+        <div class="page-subtitle">Cadastro e controle dos lotes de galinhas</div>
+      </div>
+      <button class="btn btn-primary" onclick="openLoteModal()">＋ Novo Lote</button>
+    </div>
+    <div id="lotesList" class="stats-grid" style="grid-template-columns:repeat(3,1fr)"></div>
+    <div class="empty" id="emptyLotes" style="display:none">
+      <div class="empty-icon">🐔</div>
+      <div class="empty-text">Nenhum lote cadastrado.</div>
+    </div>
+  </div>
+
+  <!-- PAGE: ESTOQUE -->
+  <div class="page" id="page-estoque">
+    <div class="topbar">
+      <div>
+        <div class="page-title">Estoque de Ovos</div>
+        <div class="page-subtitle">Controle de entrada, saída e saldo</div>
+      </div>
+      <button class="btn btn-primary" onclick="openEstoqueModal()">＋ Registrar Saída</button>
+    </div>
+    <div class="estoque-grid">
+      <div class="estoque-card">
+        <div class="estoque-icon">📥</div>
+        <div class="estoque-label">Total Produzido</div>
+        <div class="estoque-value" style="color:var(--green)" id="estProduzido">0</div>
+      </div>
+      <div class="estoque-card">
+        <div class="estoque-icon">📤</div>
+        <div class="estoque-label">Total Saídas</div>
+        <div class="estoque-value" style="color:var(--red)" id="estSaida">0</div>
+      </div>
+      <div class="estoque-card">
+        <div class="estoque-icon">📦</div>
+        <div class="estoque-label">Saldo Atual</div>
+        <div class="estoque-value" style="color:var(--accent)" id="estSaldo">0</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Movimentações</div></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Data</th><th>Tipo</th><th>Qtd. Ovos</th><th>Descrição</th></tr>
+          </thead>
+          <tbody id="estMovBody"></tbody>
+        </table>
+        <div class="empty" id="emptyEstoque" style="display:none">
+          <div class="empty-icon">📦</div>
+          <div class="empty-text">Nenhuma movimentação ainda.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: RELATÓRIOS -->
+  <div class="page" id="page-relatorios">
+    <div class="topbar">
+      <div>
+        <div class="page-title">Relatórios</div>
+        <div class="page-subtitle">Análise e desempenho da granja</div>
+      </div>
+    </div>
+    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat-card green">
+        <div class="stat-label">Melhor Dia</div>
+        <div class="stat-value green" id="relMelhorDia">—</div>
+        <div class="stat-sub" id="relMelhorData">—</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">Média Diária</div>
+        <div class="stat-value blue" id="relMedia">—</div>
+        <div class="stat-sub">ovos/dia</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Taxa Quebra Média</div>
+        <div class="stat-value red" id="relQuebra">—</div>
+        <div class="stat-sub">% sobre produção</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Produção mensal acumulada</div></div>
+      <div class="chart-wrap" style="height:220px">
+        <canvas id="relChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: DESPESAS -->
+  <div class="page" id="page-despesas">
+    <div class="topbar">
+      <div>
+        <div class="page-title">Despesas</div>
+        <div class="page-subtitle">Custos operacionais da granja</div>
+      </div>
+      <button class="btn btn-primary" onclick="openDespesaModal()">＋ Nova Despesa</button>
+    </div>
+    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat-card red">
+        <div class="stat-label">Total Mês</div>
+        <div class="stat-value red" id="despTotal">R$ 0</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Receita do Mês</div>
+        <div class="stat-value green" id="despCustoOvo">R$ 0,00</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">Itens Registrados</div>
+        <div class="stat-value blue" id="despItens">0</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Lista de Despesas</div></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Valor</th></tr></thead>
+          <tbody id="despBody"></tbody>
+        </table>
+        <div class="empty" id="emptyDesp" style="display:none">
+          <div class="empty-icon">💰</div>
+          <div class="empty-text">Nenhuma despesa registrada.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- MODAL: PRODUÇÃO -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title">Registrar Produção</div>
+    <div class="modal-sub">Informe os dados da coleta de hoje</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="fData">Data</label>
+        <input type="date" class="form-input" id="fData">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="fLote">Lote</label>
+        <select class="form-select" id="fLote"></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="fOvos">Total de Ovos</label>
+        <input type="number" class="form-input" id="fOvos" placeholder="ex: 6403" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="fQuebrados">Quebrados</label>
+        <input type="number" class="form-input" id="fQuebrados" placeholder="ex: 53" min="0">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="fObs">Observações</label>
+      <input type="text" class="form-input" id="fObs" placeholder="Opcional...">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btnSalvarProducao" onclick="salvarProducao()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: LOTE -->
+<div class="modal-overlay" id="loteModalOverlay">
+  <div class="modal">
+    <div class="modal-title">Novo Lote</div>
+    <div class="modal-sub">Cadastre um novo lote de galinhas</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="lNome">Nome do Lote</label>
+        <input type="text" class="form-input" id="lNome" placeholder="ex: Lote A">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="lGalinhas">Nº de Galinhas</label>
+        <input type="number" class="form-input" id="lGalinhas" placeholder="ex: 2000" min="1">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="lData">Data de Entrada</label>
+        <input type="date" class="form-input" id="lData">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="lRaca">Raça / Tipo</label>
+        <input type="text" class="form-input" id="lRaca" placeholder="ex: Hy-Line Brown">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeLoteModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btnSalvarLote" onclick="salvarLote()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ESTOQUE SAÍDA -->
+<div class="modal-overlay" id="estModalOverlay">
+  <div class="modal">
+    <div class="modal-title">Registrar Saída</div>
+    <div class="modal-sub">Informe a quantidade de ovos que saiu do estoque</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="eSData">Data</label>
+        <input type="date" class="form-input" id="eSData">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="eSQtd">Quantidade</label>
+        <input type="number" class="form-input" id="eSQtd" placeholder="ex: 1200" min="1">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="eSCliente">Cliente</label>
+        <input type="text" class="form-input" id="eSCliente" placeholder="ex: Mercado X">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="eSValor">Valor de Venda (R$)</label>
+        <input type="number" class="form-input" id="eSValor" placeholder="0,00" min="0" step="0.01">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeEstModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btnSalvarSaida" onclick="salvarSaida()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DESPESA -->
+<div class="modal-overlay" id="despModalOverlay">
+  <div class="modal">
+    <div class="modal-title">Nova Despesa</div>
+    <div class="modal-sub">Registre um custo operacional</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="dData">Data</label>
+        <input type="date" class="form-input" id="dData">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="dCat">Categoria</label>
+        <select class="form-select" id="dCat">
+          <option>Ração</option>
+          <option>Medicamentos</option>
+          <option>Mão de Obra</option>
+          <option>Energia</option>
+          <option>Manutenção</option>
+          <option>Outros</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="dDesc">Descrição</label>
+        <input type="text" class="form-input" id="dDesc" placeholder="Detalhes...">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="dValor">Valor (R$)</label>
+        <input type="number" class="form-input" id="dValor" placeholder="0,00" min="0" step="0.01">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeDespModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btnSalvarDespesa" onclick="salvarDespesa()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: MORTALIDADE -->
+<div class="modal-overlay" id="mortalidadeModalOverlay">
+  <div class="modal" style="max-height:85vh;overflow-y:auto">
+    <div class="modal-title">Editar Mortalidade — <span id="mLoteNome">—</span></div>
+    <div class="modal-sub">Registre a morte de aves do lote</div>
+    
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="mData">Data do Evento</label>
+        <input type="date" class="form-input" id="mData">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="mQuantidade">Quantidade de Aves</label>
+        <input type="number" class="form-input" id="mQuantidade" placeholder="ex: 5" min="1">
+      </div>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label" for="mMotivo">Motivo</label>
+      <select class="form-select" id="mMotivo">
+        <option value="">Selecione o motivo...</option>
+        <option>Doença</option>
+        <option>Predação</option>
+        <option>Idade/Velhice</option>
+        <option>Canibalismo</option>
+        <option>Acidente</option>
+        <option>Qualidade do ar</option>
+        <option>Desnutrição</option>
+        <option>Outro</option>
+      </select>
+    </div>
+
+    <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;font-weight:600">Histórico de Mortalidade</div>
+      <div class="table-wrap">
+        <table style="width:100%;font-size:11px">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:8px 0">Data</th>
+              <th style="text-align:left;padding:8px 8px">Aves</th>
+              <th style="text-align:left;padding:8px 8px">Motivo</th>
+              <th style="text-align:center;padding:8px 0">Ação</th>
+            </tr>
+          </thead>
+          <tbody id="mortalidadeBody"></tbody>
+        </table>
+        <div class="empty" id="emptyMortalidade" style="display:none;padding:20px;font-size:12px">
+          <div class="empty-icon" style="font-size:24px">📋</div>
+          <div class="empty-text">Nenhum registro de mortalidade</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer" style="margin-top:20px">
+      <button class="btn btn-ghost" onclick="closeMortalidadeModal()">Fechar</button>
+      <button class="btn btn-primary" id="btnSalvarMortalidade" onclick="salvarMortalidade()">💾 Registrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM NAVIGATION -->
+<nav class="bottom-nav" id="bottomNav">
+  <div class="bn-item active" id="bn-inicio" onclick="navigate('inicio')">
+    <div class="bn-icon-wrap">
+      <span class="bn-icon">🏠</span>
+    </div>
+    <span class="bn-label">Início</span>
+  </div>
+  <div class="bn-item" id="bn-producao" onclick="navigate('producao')">
+    <div class="bn-icon-wrap">
+      <span class="bn-icon">🥚</span>
+    </div>
+    <span class="bn-label">Produção</span>
+  </div>
+  <div class="bn-item" id="bn-despesas" onclick="navigate('despesas')">
+    <div class="bn-icon-wrap">
+      <span class="bn-icon">💰</span>
+    </div>
+    <span class="bn-label">Despesas</span>
+  </div>
+  <div class="bn-item" id="bn-estoque" onclick="navigate('estoque')">
+    <div class="bn-icon-wrap">
+      <span class="bn-icon">📦</span>
+    </div>
+    <span class="bn-label">Estoque</span>
+  </div>
+  <div class="bn-item" id="bn-relatorios" onclick="navigate('relatorios')">
+    <div class="bn-icon-wrap">
+      <span class="bn-icon">📈</span>
+    </div>
+    <span class="bn-label">Relatórios</span>
+  </div>
+  <div class="bn-item" id="bn-lotes" onclick="navigate('lotes')">
+    <div class="bn-icon-wrap">
+      <span class="bn-icon">🐔</span>
+    </div>
+    <span class="bn-label">Lotes</span>
+  </div>
+</nav>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- LOADING OVERLAY -->
+<div id="loadingOverlay" style="
+  display:flex; position:fixed; inset:0; z-index:9998;
+  background:rgba(15,17,23,0.96); backdrop-filter:blur(8px);
+  flex-direction:column; align-items:center; justify-content:center; gap:20px;
+  font-family:'Sora',sans-serif;">
+  <div id="loadingSpinner" style="
+    width:52px; height:52px; border-radius:50%;
+    border:3px solid rgba(245,166,35,0.2);
+    border-top-color:#f5a623;
+    animation:spin 0.8s linear infinite;">
+  </div>
+  <div id="loadingMsg" style="color:#6b7593; font-size:14px; letter-spacing:0.5px;">
+    Conectando ao banco de dados...
+  </div>
+  <div id="loadingDetail" style="color:#3a4060; font-size:11px; max-width:380px; text-align:center; line-height:1.6;"></div>
+  <div id="loadingError" style="display:none; background:#1f2435; border:1px solid rgba(255,71,87,0.4);
+    border-radius:12px; padding:20px 24px; max-width:440px; width:90%;">
+    <div style="color:#ff4757; font-weight:700; font-size:14px; margin-bottom:12px;">❌ Erro ao conectar</div>
+    <div id="loadingErrorMsg" style="color:#6b7593; font-size:12px; line-height:1.8; font-family:monospace; word-break:break-all;"></div>
+    <div style="margin-top:16px; padding-top:16px; border-top:1px solid #2a3048;">
+      <div style="color:#6b7593; font-size:11px; margin-bottom:8px;">Verifique o arquivo <b style="color:#e8ecf4">supabase.config.js</b>:</div>
+      <div style="color:#4dabf7; font-size:11px; font-family:monospace;">var SUPABASE_URL = 'https://xxx.supabase.co';</div>
+      <div style="color:#4dabf7; font-size:11px; font-family:monospace;">var SUPABASE_KEY = 'eyJ...';</div>
+    </div>
+    <button onclick="location.reload()" style="
+      margin-top:16px; width:100%; padding:10px;
+      background:linear-gradient(135deg,#f5a623,#e8621a);
+      border:none; border-radius:8px; color:#fff;
+      font-family:'Sora',sans-serif; font-weight:600; font-size:13px; cursor:pointer;">
+      🔄 Tentar novamente
+    </button>
+  </div>
+</div>
+<style>@keyframes spin { to { transform:rotate(360deg); } }</style>
+
+<!-- SCRIPTS -->
+<!-- Chart.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<!-- Supabase JS (UMD — funciona sem import/export) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<!-- Suas credenciais — edite este arquivo -->
+<script src="supabase.config.js"></script>
+<!-- Lógica da aplicação -->
+<script src="granja.js"></script>
+</body>
+</html>
