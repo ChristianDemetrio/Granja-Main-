@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rastreabilidade — Do ninho à mesa</title>
+<meta name="robots" content="noindex">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="granja.css">
+<style>
+  body { display:flex; align-items:flex-start; justify-content:center; padding:24px 16px 60px; }
+  .rst-wrap { width:100%; max-width:480px; }
+  .rst-header { text-align:center; margin-bottom:24px; }
+  .rst-egg { font-size:44px; margin-bottom:8px; }
+  .rst-farm { font-size:19px; font-weight:800; }
+  .rst-loc { font-size:12px; color:var(--muted); margin-top:2px; }
+  .rst-card {
+    background: var(--surface); border:1px solid var(--border); border-radius:16px;
+    box-shadow: var(--card-glow); padding:20px; margin-bottom:16px;
+  }
+  .rst-lote-nome { font-size:20px; font-weight:800; margin-bottom:2px; }
+  .rst-lote-raca { font-size:13px; color:var(--muted); margin-bottom:16px; }
+  .timeline { position:relative; padding-left:28px; }
+  .timeline::before { content:''; position:absolute; left:9px; top:6px; bottom:6px; width:2px; background:var(--border); }
+  .tl-item { position:relative; padding-bottom:22px; }
+  .tl-item:last-child { padding-bottom:0; }
+  .tl-dot {
+    position:absolute; left:-28px; top:0; width:20px; height:20px; border-radius:50%;
+    background:var(--surface2); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:11px;
+  }
+  .tl-title { font-weight:700; font-size:14px; margin-bottom:2px; }
+  .tl-sub { font-size:12px; color:var(--muted); line-height:1.5; }
+  .tl-info-box { margin-top:6px; padding:10px; background:rgba(77,171,247,0.08); border-radius:8px; font-size:12px; color:var(--text); }
+  .rst-stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px; }
+  .rst-stat { background:var(--surface2); border-radius:10px; padding:10px 12px; }
+  .rst-stat b { display:block; font-size:18px; margin-top:2px; }
+  .rst-footer { text-align:center; font-size:11px; color:var(--muted); margin-top:24px; line-height:1.7; }
+  .rst-error { text-align:center; padding:40px 20px; }
+  .rst-error .ic { font-size:40px; margin-bottom:12px; }
+  #rstLoading { text-align:center; padding:60px 20px; color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="rst-wrap">
+  <div class="rst-header">
+    <div class="rst-egg">🥚</div>
+    <div class="rst-farm" id="rstFarmName">—</div>
+    <div class="rst-loc" id="rstFarmLoc">—</div>
+  </div>
+
+  <div id="rstLoading">Carregando rastreabilidade…</div>
+  <div id="rstContent" style="display:none"></div>
+
+  <div class="rst-footer">
+    Rastreabilidade gerada por GranjaControl 🌾<br>
+    Escaneie o QR Code de cada caixa para ver a origem dos seus ovos.
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supabase.config.js"></script>
+<script src="rastreio.js"></script>
+</body>
+</html>

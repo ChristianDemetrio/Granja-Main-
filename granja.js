@@ -10,10 +10,60 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ========== CONSTANTES ==========
 const LOT_COLORS = ['#f5a623','#2ed573','#4dabf7','#ff6b81','#a29bfe','#ffeaa7','#fd79a8'];
+// Identidade usada na etiqueta de rastreabilidade (mesmo texto usado em rastreio.js)
+const FARM_NAME_APP = 'Granja Ovos da Serra';
+const FARM_LOC_APP  = 'São Pedro, SP';
+const DEFAULT_LAT = -22.7297; // Piracicaba
+const DEFAULT_LON = -47.6483; // Piracicaba
 
 // ========== STATE (cache em memória) ==========
-let state = { lotes: [], producao: [], saidas: [], despesas: [], mortalidade: [] };
+let state = { lotes: [], producao: [], saidas: [], despesas: [], mortalidade: [], sunData: null };
 let currentProdDays = 7; // Armazenar dias atual para o gráfico de produção
+
+// =============================================================================
+// API — NASCER E PÔR DO SOL
+// =============================================================================
+async function fetchSunriseSunset(lat = DEFAULT_LAT, lon = DEFAULT_LON) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    // formatted=0 retorna em UTC com timestamp ISO
+    const response = await fetch(`https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=${today}&formatted=0`);
+    const data = await response.json();
+    
+    if (data.status !== 'OK') return null;
+    
+    const results = data.results;
+    
+    // Converter UTC para UTC-3 (Brasília/Piracicaba)
+    const sunriseUTC = new Date(results.sunrise);
+    const sunsetUTC = new Date(results.sunset);
+    
+    const tzOffset = -3 * 60 * 60 * 1000; // UTC-3 em ms
+    const sunriseLocal = new Date(sunriseUTC.getTime() + tzOffset);
+    const sunsetLocal = new Date(sunsetUTC.getTime() + tzOffset);
+    
+    const srHH = String(sunriseLocal.getUTCHours()).padStart(2, '0');
+    const srMM = String(sunriseLocal.getUTCMinutes()).padStart(2, '0');
+    const ssHH = String(sunsetLocal.getUTCHours()).padStart(2, '0');
+    const ssMM = String(sunsetLocal.getUTCMinutes()).padStart(2, '0');
+    
+    const sunrise = `${srHH}:${srMM}`;
+    const sunset = `${ssHH}:${ssMM}`;
+    
+    // day_length vem em segundos com formatted=0
+    const dayLengthSeconds = results.day_length;
+    const dayLength = (dayLengthSeconds / 3600).toFixed(1);
+    
+    return {
+      sunrise: sunrise,
+      sunset: sunset,
+      dayLength: dayLength
+    };
+  } catch (err) {
+    console.error('Erro ao buscar dados de sol:', err);
+    return null;
+  }
+}
 
 // =============================================================================
 // DB — CAMADA DE ACESSO AO SUPABASE
@@ -28,7 +78,7 @@ const DB = {
   },
   async insertLote(l) {
     const { data, error } = await db.from('lotes')
-      .insert([{ nome: l.nome, galinhas: l.galinhas, data: l.data, raca: l.raca }])
+      .insert([{ nome: l.nome, galinhas: l.galinhas, data: l.data, raca: l.raca, documento_url: l.documento_url || null, informacoes: l.informacoes || null }])
       .select().single();
     if (error) throw error;
     return data;
@@ -96,7 +146,7 @@ const DB = {
   },
   async insertDespesa(d) {
     const { data, error } = await db.from('despesas')
-      .insert([{ data: d.data, cat: d.cat, descricao: d.descricao, valor: d.valor }])
+      .insert([{ data: d.data, cat: d.cat, descricao: d.descricao, valor: d.valor, lote_id: d.lote_id || null }])
       .select().single();
     if (error) throw error;
     return data;
@@ -202,6 +252,24 @@ function fmtDate(d) { const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; }
 function today() { return new Date().toISOString().split('T')[0]; }
 function getColorByIdx(i) { return LOT_COLORS[i % LOT_COLORS.length]; }
 function getLoteById(id) { return state.lotes.find(l=>l.id===id); }
+// Registros de "saída com valor" são gravados na tabela despesas com esse prefixo
+// para representar receita de vendas — não são um custo operacional de fato.
+function isReceita(d) { return (d.descricao || '').startsWith('Receita:'); }
+
+// Escapa texto vindo do usuário/banco antes de inserir via innerHTML (previne XSS armazenado)
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+// Igual ao escapeHtml, mas preserva quebras de linha como <br> (para campos de texto livre)
+function escapeHtmlMultiline(str) {
+  return escapeHtml(str).replace(/\n/g, '<br>');
+}
 
 function setBtnLoading(id, loading, label) {
   const btn = document.getElementById(id);
@@ -266,7 +334,7 @@ function renderInicio() {
   document.getElementById('iTotalGalinhas').textContent = formatNum(totalGal);
 
   const mes = new Date().toISOString().slice(0,7);
-  const despMes  = state.despesas.filter(d=>d.data.startsWith(mes));
+  const despMes  = state.despesas.filter(d=>d.data.startsWith(mes) && !isReceita(d));
   const totalDesp= despMes.reduce((s,d)=>s+d.valor,0);
   const ovosMes  = state.producao.filter(p=>p.data.startsWith(mes)).reduce((s,p)=>s+p.ovos,0);
   document.getElementById('iDespMes').textContent  = 'R$ '+totalDesp.toLocaleString('pt-BR',{minimumFractionDigits:2});
@@ -277,6 +345,16 @@ function renderInicio() {
   const chartData   = chartDates.map(d=>getTotalByDate(d));
   const chartLabels = chartDates.map(d=>fmtDate(d).slice(0,5));
   if (inicioChart) inicioChart.destroy();
+  // Buscar dados de nascer e pôr do sol
+  fetchSunriseSunset().then(sunData => {
+    if (sunData) {
+      state.sunData = sunData;
+      document.getElementById('iSunrise').textContent = sunData.sunrise;
+      document.getElementById('iSunset').textContent = sunData.sunset;
+      document.getElementById('iSunDuration').textContent = sunData.dayLength + 'h';
+    }
+  }).catch(err => console.warn('Erro ao buscar dados de sol:', err));
+
   const ctx  = document.getElementById('inicioChart').getContext('2d');
   const grad = ctx.createLinearGradient(0,0,0,200);
   grad.addColorStop(0,'rgba(245,166,35,0.3)');
@@ -302,7 +380,7 @@ function renderInicio() {
       const tx=l.galinhas>0?((ov/l.galinhas)*100).toFixed(1):'0.0';
       const pct=(ov/maxOvos)*100; const c=getColorByIdx(i);
       return `<div class="lote-item"><div class="lote-dot" style="background:${c}"></div><div style="flex:1">
-        <div style="display:flex;justify-content:space-between"><span class="lote-name">${l.nome}</span><span class="lote-val" style="color:${c}">${formatNum(ov)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span class="lote-name">${escapeHtml(l.nome)}</span><span class="lote-val" style="color:${c}">${formatNum(ov)}</span></div>
         <div style="display:flex;justify-content:space-between"><span class="lote-info">${formatNum(l.galinhas)} galinhas</span><span class="lote-info">${tx}% postura</span></div>
         <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${c}"></div></div>
       </div></div>`;
@@ -396,7 +474,7 @@ function renderProducao(days=7) {
     selectLote.innerHTML = '<option value="todos">📊 Todos os lotes</option>';
     state.lotes.forEach((l, i) => {
       const color = getColorByIdx(i);
-      selectLote.innerHTML += `<option value="${l.id}" data-color="${color}">🔷 ${l.nome}</option>`;
+      selectLote.innerHTML += `<option value="${l.id}" data-color="${color}">🔷 ${escapeHtml(l.nome)}</option>`;
     });
   }
 
@@ -413,8 +491,8 @@ function renderProducao(days=7) {
       const tx=l.galinhas>0?((ov/l.galinhas)*100).toFixed(1):'0.0';
       const pct=(ov/maxOvos)*100; const c=getColorByIdx(i);
       return `<div class="lote-item"><div class="lote-dot" style="background:${c}"></div><div style="flex:1">
-        <div style="display:flex;justify-content:space-between"><span class="lote-name">${l.nome}</span><span class="lote-val" style="color:${c}">${formatNum(ov)}</span></div>
-        <div style="display:flex;justify-content:space-between"><span class="lote-info">${formatNum(l.galinhas)} galinhas · ${tx}%</span><span class="lote-info">${l.raca}</span></div>
+        <div style="display:flex;justify-content:space-between"><span class="lote-name">${escapeHtml(l.nome)}</span><span class="lote-val" style="color:${c}">${formatNum(ov)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span class="lote-info">${formatNum(l.galinhas)} galinhas · ${tx}%</span><span class="lote-info">${escapeHtml(l.raca)}</span></div>
         <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${c}"></div></div>
       </div></div>`;
     }).join('');
@@ -437,7 +515,7 @@ function renderProducao(days=7) {
     const loteCount=[...new Set(grouped[d].map(p=>p.lote))].length;
     const taxa2=totalGalinhas()>0?((total/totalGalinhas())*100).toFixed(1):'0.0';
     const rateClass=parseFloat(taxa2)>=85?'rate-good':parseFloat(taxa2)>=70?'rate-warn':'rate-bad';
-    const lotesSummary = loteDetails.map(l => `<span class="badge-lotes" style="background:${getColorByIdx(state.lotes.findIndex(x=>x.id===l.id))};opacity:0.9">${l.nome}: ${formatNum(l.ovos)}</span>`).join(' ');
+    const lotesSummary = loteDetails.map(l => `<span class="badge-lotes" style="background:${getColorByIdx(state.lotes.findIndex(x=>x.id===l.id))};opacity:0.9">${escapeHtml(l.nome)}: ${formatNum(l.ovos)}</span>`).join(' ');
     return `<tr><td class="td-date">${fmtDate(d)}</td><td class="td-total">${formatNum(total)}</td><td><span class="badge-broken">${quebrados}</span></td><td class="td-rate ${rateClass}">${taxa2}%</td><td style="font-size:11px;display:flex;gap:4px;flex-wrap:wrap">${lotesSummary}</td><td><button class="btn btn-ghost" style="padding:6px 12px;font-size:11px" onclick="deleteDate('${d}')">🗑</button></td></tr>`;
   }).join('');
 }
@@ -541,7 +619,7 @@ function updateProdChartByLote(days=7) {
 function openModal() {
   if(state.lotes.length===0){ showToast('error','Cadastre um lote primeiro!'); return; }
   document.getElementById('fData').value=today();
-  document.getElementById('fLote').innerHTML=state.lotes.map(l=>`<option value="${l.id}">${l.nome} (${formatNum(l.galinhas)} galinhas)</option>`).join('');
+  document.getElementById('fLote').innerHTML=state.lotes.map(l=>`<option value="${l.id}">${escapeHtml(l.nome)} (${formatNum(l.galinhas)} galinhas)</option>`).join('');
   document.getElementById('fOvos').value=''; document.getElementById('fQuebrados').value=''; document.getElementById('fObs').value='';
   document.getElementById('modalOverlay').classList.add('open');
 }
@@ -579,30 +657,66 @@ function renderLotes() {
   const div=document.getElementById('lotesList'); const empty=document.getElementById('emptyLotes');
   if(state.lotes.length===0){ div.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
+
+  // ---- Rentabilidade: agregados compartilhados entre todos os lotes ----
+  const totalGalinhasGeral = totalGalinhas();
+  const ovosTotalGeral     = state.producao.reduce((s,p)=>s+p.ovos,0);
+  const despesasGeraisTotal = state.despesas.filter(d=>!d.lote_id && !isReceita(d)).reduce((s,d)=>s+d.valor,0);
+  const receitaTotal        = state.despesas.filter(isReceita).reduce((s,d)=>s+d.valor,0);
+
   div.innerHTML=state.lotes.map((l,i)=>{
     const color=getColorByIdx(i);
     const totalOvosLote=state.producao.filter(p=>p.lote===l.id).reduce((s,p)=>s+p.ovos,0);
-    const totalMortalidade=state.mortalidade.filter(m=>m.lote_id===l.id).reduce((s,m)=>s+m.quantidade,0);
+    const mortalidadeLote=state.mortalidade.filter(m=>m.lote_id===l.id).sort((a,b)=>new Date(b.data)-new Date(a.data));
+    const totalMortalidade=mortalidadeLote.reduce((s,m)=>s+m.quantidade,0);
+
+    // Rentabilidade do lote (rateio proporcional para custos/receitas não vinculados diretamente)
+    const custoDireto   = state.despesas.filter(d=>d.lote_id===l.id && !isReceita(d)).reduce((s,d)=>s+d.valor,0);
+    const rateioGeral   = totalGalinhasGeral>0 ? despesasGeraisTotal*(l.galinhas/totalGalinhasGeral) : 0;
+    const custoTotal    = custoDireto + rateioGeral;
+    const custoPorAve   = l.galinhas>0 ? custoTotal/l.galinhas : 0;
+    const custoPorOvo   = totalOvosLote>0 ? custoTotal/totalOvosLote : 0;
+    const receitaEstim  = ovosTotalGeral>0 ? receitaTotal*(totalOvosLote/ovosTotalGeral) : 0;
+    const lucroEstim    = receitaEstim - custoTotal;
+    const rentabilidadeLabel = `<div style="margin-top:8px;padding:10px;background:rgba(46,213,115,0.08);border-radius:8px;font-size:11px">
+      <b style="color:var(--green)">💹 Rentabilidade (estimada)</b>
+      <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div><span style="color:var(--muted)">Custo total</span><br><b>R$ ${custoTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}</b></div>
+        <div><span style="color:var(--muted)">Receita rateada</span><br><b>R$ ${receitaEstim.toLocaleString('pt-BR',{minimumFractionDigits:2})}</b></div>
+        <div><span style="color:var(--muted)">Custo/ave</span><br><b>R$ ${custoPorAve.toLocaleString('pt-BR',{minimumFractionDigits:2})}</b></div>
+        <div><span style="color:var(--muted)">Custo/ovo</span><br><b>R$ ${custoPorOvo.toFixed(4)}</b></div>
+        <div style="grid-column:span 2"><span style="color:var(--muted)">Lucro estimado</span><br><b style="color:${lucroEstim>=0?'var(--green)':'#ff6b81'}">R$ ${lucroEstim.toLocaleString('pt-BR',{minimumFractionDigits:2})}</b></div>
+      </div>
+      <div style="margin-top:6px;color:var(--muted);font-size:10px">Custos/receitas gerais (sem lote definido) são rateados por nº de galinhas e ovos produzidos.</div>
+    </div>`;
+    const documentoLabel=l.documento_url?`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"><a href="${encodeURI(l.documento_url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;font-size:12px;padding:6px 10px;background:var(--blue);color:white;border-radius:6px;text-decoration:none;font-weight:500">📎 Ver Documento</a></div>`:'';
+    const informacoesLabel=l.informacoes?`<div style="margin-top:8px;padding:10px;background:rgba(77,171,247,0.1);border-radius:8px;font-size:12px;color:var(--text)"><b>ℹ️ Informações:</b><br>${escapeHtmlMultiline(l.informacoes)}</div>`:'';
+    const mortalidadeLabel=mortalidadeLote.length>0?`<div style="margin-top:8px;padding:10px;background:rgba(255,107,129,0.1);border-radius:8px;font-size:11px"><b style="color:#ff6b81">💀 Histórico de Mortalidade:</b><div style="margin-top:6px;max-height:80px;overflow-y:auto">${mortalidadeLote.slice(0,3).map(m=>`<div style="padding:4px 0;border-bottom:1px solid rgba(255,107,129,0.2);display:grid;grid-template-columns:1fr 1fr;gap:4px"><div><span style="color:var(--muted)">Data:</span> ${fmtDate(m.data)}</div><div><span style="color:var(--muted)">Qtd:</span> <b>${m.quantidade}</b> aves</div><div style="grid-column:span 2"><span style="color:var(--muted)">Motivo:</span> ${escapeHtml(m.motivo)}</div></div>`).join('')}</div></div>`:'';
     return `<div class="stat-card">
       <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${color};border-radius:16px 16px 0 0"></div>
       <div style="font-size:28px;margin-bottom:10px">🐔</div>
-      <div style="font-size:16px;font-weight:800;margin-bottom:4px">${l.nome}</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${l.raca}</div>
+      <div style="font-size:16px;font-weight:800;margin-bottom:4px">${escapeHtml(l.nome)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${escapeHtml(l.raca)}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
         <div><span style="color:var(--muted)">Galinhas</span><br><b>${formatNum(l.galinhas)}</b></div>
         <div><span style="color:var(--muted)">Entrada</span><br><b>${fmtDate(l.data)}</b></div>
         <div style="grid-column:span 2"><span style="color:var(--muted)">Total produzido</span><br><b style="color:${color}">${formatNum(totalOvosLote)} ovos</b></div>
-        <div style="grid-column:span 2"><span style="color:var(--muted)">Mortalidade</span><br><b style="color:#ff6b81">${formatNum(totalMortalidade)} aves</b></div>
+        <div style="grid-column:span 2"><span style="color:var(--muted)">Mortalidade Total</span><br><b style="color:#ff6b81">${formatNum(totalMortalidade)} aves</b></div>
       </div>
-      <div style="margin-top:14px;display:flex;gap:8px">
-        <button class="btn btn-ghost" style="flex:1;padding:8px;font-size:12px" onclick="openMortalidadeModal(${l.id},'${l.nome}')">✏️ Editar Mortalidade</button>
-        <button class="btn btn-ghost" style="flex:1;padding:8px;font-size:12px" onclick="deleteLote(${l.id})">🗑 Remover</button>
+      ${rentabilidadeLabel}
+      ${informacoesLabel}
+      ${mortalidadeLabel}
+      ${documentoLabel}
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" style="flex:1;min-width:110px;padding:8px;font-size:12px" onclick="openMortalidadeModal(${l.id})">✏️ Mortalidade</button>
+        <button class="btn btn-ghost" style="flex:1;min-width:110px;padding:8px;font-size:12px" onclick="abrirEtiquetaModal(${l.id})">🔖 Etiqueta QR</button>
+        <button class="btn btn-ghost" style="flex:1;min-width:110px;padding:8px;font-size:12px" onclick="deleteLote(${l.id})">🗑 Remover</button>
       </div>
     </div>`;
   }).join('');
 }
 
-function openLoteModal(){ document.getElementById('lNome').value=''; document.getElementById('lGalinhas').value=''; document.getElementById('lData').value=today(); document.getElementById('lRaca').value=''; document.getElementById('loteModalOverlay').classList.add('open'); }
+function openLoteModal(){ document.getElementById('lNome').value=''; document.getElementById('lGalinhas').value=''; document.getElementById('lData').value=today(); document.getElementById('lRaca').value=''; document.getElementById('lDocumento').value=''; document.getElementById('lInformacoes').value=''; document.getElementById('lMargemDocumento').innerText=''; document.getElementById('loteModalOverlay').classList.add('open'); }
 function closeLoteModal(){ document.getElementById('loteModalOverlay').classList.remove('open'); }
 
 async function salvarLote() {
@@ -610,10 +724,20 @@ async function salvarLote() {
   const galinhas=parseInt(document.getElementById('lGalinhas').value);
   const data=document.getElementById('lData').value;
   const raca=document.getElementById('lRaca').value.trim()||'Não informada';
-  if(!nome||!galinhas||galinhas<=0||!data){ showToast('error','Preencha todos os campos!'); return; }
-  setBtnLoading('btnSalvarLote',true,'💾 Salvar');
+  const informacoes=document.getElementById('lInformacoes').value.trim()||'';
+  const documentoFile=document.getElementById('lDocumento').files[0];
+  if(!nome||!galinhas||galinhas<=0||!data){ showToast('error','Preencha todos os campos obrigatórios!'); return; }
+  setBtnLoading('btnSalvarLote',true,'💾 Salvando...');
   try {
-    const novo=await DB.insertLote({nome,galinhas,data,raca});
+    let documentoUrl=null;
+    if(documentoFile) {
+      const nomeArquivo='lote_'+Date.now()+'_'+documentoFile.name;
+      const { data: uploadData, error: uploadError } = await db.storage.from('documentos-lotes').upload(nomeArquivo, documentoFile);
+      if(uploadError) throw new Error('Erro ao fazer upload: '+uploadError.message);
+      const { data: urlData } = db.storage.from('documentos-lotes').getPublicUrl(nomeArquivo);
+      documentoUrl=urlData.publicUrl;
+    }
+    const novo=await DB.insertLote({nome,galinhas,data,raca,documento_url:documentoUrl,informacoes});
     state.lotes.push(novo); closeLoteModal(); renderLotes(); showToast('success',`✅ Lote "${nome}" cadastrado!`);
   } catch(err){ showToast('error','❌ Erro: '+err.message); }
   finally{ setBtnLoading('btnSalvarLote',false,'💾 Salvar'); }
@@ -628,13 +752,87 @@ async function deleteLote(id) {
 }
 
 // =============================================================================
+// RASTREABILIDADE — QR CODE / ETIQUETA ("do ninho à mesa")
+// =============================================================================
+function getBaseUrl() {
+  // Caminho da própria pasta do app, funciona em qualquer domínio/subpasta
+  return window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
+}
+
+function abrirEtiquetaModal(loteId) {
+  const selectLote = document.getElementById('etLote');
+  selectLote.innerHTML = state.lotes.map(l => `<option value="${l.id}">${escapeHtml(l.nome)}</option>`).join('');
+  selectLote.value = loteId;
+  atualizarDatasEtiqueta();
+  document.getElementById('etiquetaModalOverlay').classList.add('open');
+  gerarEtiquetaPreview();
+}
+function closeEtiquetaModal(){ document.getElementById('etiquetaModalOverlay').classList.remove('open'); }
+
+function atualizarDatasEtiqueta() {
+  const loteId = parseInt(document.getElementById('etLote').value);
+  const datas = [...new Set(state.producao.filter(p => p.lote === loteId).map(p => p.data))].sort().reverse();
+  const selectData = document.getElementById('etData');
+  selectData.innerHTML = datas.length === 0
+    ? '<option value="">Sem coletas — QR geral do lote</option>'
+    : datas.map(d => `<option value="${d}">${fmtDate(d)}</option>`).join('');
+}
+
+function gerarEtiquetaPreview() {
+  const loteId = parseInt(document.getElementById('etLote').value);
+  const data = document.getElementById('etData').value;
+  const lote = getLoteById(loteId);
+  const preview = document.getElementById('etiquetaPreview');
+  if (!lote) { preview.innerHTML = ''; return; }
+
+  const url = `${getBaseUrl()}rastreio.html?lote=${loteId}${data ? '&data=' + encodeURIComponent(data) : ''}`;
+
+  preview.innerHTML = `
+    <div id="etiquetaCard" style="width:250px;padding:18px;background:#fff;color:#111;border-radius:10px;text-align:center;font-family:'Sora',sans-serif">
+      <div style="font-size:13px;font-weight:800;margin-bottom:2px">🥚 ${escapeHtml(FARM_NAME_APP)}</div>
+      <div style="font-size:10px;color:#666;margin-bottom:10px">${escapeHtml(FARM_LOC_APP)}</div>
+      <div id="etiquetaQrDiv" style="display:flex;justify-content:center;margin-bottom:10px"></div>
+      <div style="font-size:12px;font-weight:700">${escapeHtml(lote.nome)}</div>
+      <div style="font-size:10px;color:#666">${data ? 'Coleta: ' + fmtDate(data) : 'Origem do lote'}</div>
+      <div style="font-size:9px;color:#999;margin-top:6px">Escaneie para ver a rastreabilidade completa</div>
+    </div>
+  `;
+  const qrDiv = document.getElementById('etiquetaQrDiv');
+  new QRCode(qrDiv, { text: url, width: 120, height: 120, correctLevel: QRCode.CorrectLevel.M });
+}
+
+function imprimirEtiqueta() {
+  const card = document.getElementById('etiquetaCard');
+  if (!card) { showToast('error','Gere a etiqueta primeiro'); return; }
+  const w = window.open('', '_blank', 'width=420,height=520');
+  if (!w) { showToast('error','Permita pop-ups para imprimir'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><title>Etiqueta — GranjaControl</title><meta charset="UTF-8">
+    <style>body{display:flex;align-items:center;justify-content:center;margin:0;padding:20px;font-family:sans-serif;background:#fff}
+    @media print{ body{padding:0} }</style></head><body>${card.outerHTML}</body></html>`);
+  w.document.close();
+  setTimeout(() => { w.focus(); w.print(); }, 300);
+}
+
+function baixarQR() {
+  const canvas = document.querySelector('#etiquetaQrDiv canvas');
+  if (!canvas) { showToast('error','Gere a etiqueta primeiro'); return; }
+  const loteId = document.getElementById('etLote').value;
+  const data = document.getElementById('etData').value;
+  const link = document.createElement('a');
+  link.download = `qr_lote${loteId}${data ? '_' + data : ''}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+// =============================================================================
 // RENDER / CRUD MORTALIDADE
 // =============================================================================
 let mortalidadeEditandoLoteId=null;
 
-function openMortalidadeModal(loteId,loteName){
+function openMortalidadeModal(loteId){
   mortalidadeEditandoLoteId=loteId;
-  document.getElementById('mLoteNome').textContent=loteName;
+  const lote=getLoteById(loteId);
+  document.getElementById('mLoteNome').textContent=lote?lote.nome:'';
   document.getElementById('mData').value=today();
   document.getElementById('mQuantidade').value='';
   document.getElementById('mMotivo').value='';
@@ -661,7 +859,7 @@ function renderMortalidadeList(loteId){
     <tr>
       <td class="td-date">${fmtDate(m.data)}</td>
       <td style="color:#ff6b81"><b>${formatNum(m.quantidade)}</b></td>
-      <td style="font-size:12px;color:var(--muted)">${m.motivo}</td>
+      <td style="font-size:12px;color:var(--muted)">${escapeHtml(m.motivo)}</td>
       <td><button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="deletarMortalidade(${m.id})">🗑</button></td>
     </tr>
   `).join('');
@@ -719,7 +917,7 @@ function renderEstoque() {
     <td class="td-date">${fmtDate(m.data)}</td>
     <td><span class="stat-badge ${m.tipo==='entrada'?'badge-up':'badge-down'}">${m.tipo==='entrada'?'▲ Entrada':'▼ Saída'}</span></td>
     <td class="td-total" style="color:${m.tipo==='entrada'?'var(--green)':'var(--red)'}">${m.tipo==='entrada'?'+':'-'}${formatNum(m.qtd)}</td>
-    <td style="font-size:12px;color:var(--muted)">${m.descricao}</td>
+    <td style="font-size:12px;color:var(--muted)">${escapeHtml(m.descricao)}</td>
   </tr>`).join('');
 }
 
@@ -786,9 +984,10 @@ function renderRelatorios() {
 // =============================================================================
 function renderDespesas() {
   const mes=new Date().toISOString().slice(0,7);
-  const despMes=state.despesas.filter(d=>d.data.startsWith(mes));
+  const despMesTodos=state.despesas.filter(d=>d.data.startsWith(mes));
+  const despMes=despMesTodos.filter(d=>!isReceita(d));
   const total=despMes.reduce((s,d)=>s+d.valor,0);
-  const receitas=despMes.filter(d=>d.descricao.startsWith('Receita:')).reduce((s,d)=>s+d.valor,0);
+  const receitas=despMesTodos.filter(isReceita).reduce((s,d)=>s+d.valor,0);
   document.getElementById('despTotal').textContent='R$ '+total.toLocaleString('pt-BR',{minimumFractionDigits:2});
   document.getElementById('despCustoOvo').textContent='R$ '+receitas.toLocaleString('pt-BR',{minimumFractionDigits:2});
   document.getElementById('despItens').textContent=despMes.length;
@@ -797,18 +996,28 @@ function renderDespesas() {
   if(sorted.length===0){ empty.style.display='block'; tbody.innerHTML=''; return; }
   empty.style.display='none';
   tbody.innerHTML=sorted.map(d=>{
-    const isReceita=d.descricao.startsWith('Receita:');
-    const corValor=isReceita?'var(--green)':'var(--red)';
+    const corValor=isReceita(d)?'var(--green)':'var(--red)';
+    const lote=d.lote_id?getLoteById(d.lote_id):null;
+    const loteLabel=lote?escapeHtml(lote.nome):'<span style="color:var(--muted)">Geral</span>';
     return `<tr>
       <td class="td-date">${fmtDate(d.data)}</td>
-      <td><span class="badge-lotes">${d.cat}</span></td>
-      <td style="font-size:13px">${d.descricao}</td>
+      <td><span class="badge-lotes">${escapeHtml(d.cat)}</span></td>
+      <td style="font-size:13px">${escapeHtml(d.descricao)}</td>
+      <td style="font-size:12px">${loteLabel}</td>
       <td class="td-total" style="color:${corValor}">R$ ${d.valor.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
     </tr>`;
   }).join('');
 }
 
-function openDespesaModal(){ document.getElementById('dData').value=today(); document.getElementById('dDesc').value=''; document.getElementById('dValor').value=''; document.getElementById('despModalOverlay').classList.add('open'); }
+function openDespesaModal(){
+  document.getElementById('dData').value=today(); document.getElementById('dDesc').value=''; document.getElementById('dValor').value='';
+  const selectLote=document.getElementById('dLote');
+  if (selectLote) {
+    selectLote.innerHTML = '<option value="">Geral (rateado entre todos os lotes)</option>'
+      + state.lotes.map(l=>`<option value="${l.id}">${escapeHtml(l.nome)}</option>`).join('');
+  }
+  document.getElementById('despModalOverlay').classList.add('open');
+}
 function closeDespModal(){ document.getElementById('despModalOverlay').classList.remove('open'); }
 
 async function salvarDespesa() {
@@ -816,10 +1025,12 @@ async function salvarDespesa() {
   const cat=document.getElementById('dCat').value;
   const descricao=document.getElementById('dDesc').value.trim()||cat;
   const valor=parseFloat(document.getElementById('dValor').value);
+  const loteIdRaw=document.getElementById('dLote')?.value;
+  const lote_id=loteIdRaw?parseInt(loteIdRaw):null;
   if(!data||!valor||valor<=0){ showToast('error','Preencha os campos corretamente!'); return; }
   setBtnLoading('btnSalvarDespesa',true,'💾 Salvar');
   try {
-    const nova=await DB.insertDespesa({data,cat,descricao,valor});
+    const nova=await DB.insertDespesa({data,cat,descricao,valor,lote_id});
     state.despesas.push(nova); closeDespModal(); renderDespesas(); showToast('success',`✅ Despesa de R$ ${valor.toFixed(2)} registrada!`);
   } catch(err){ showToast('error','❌ Erro: '+err.message); }
   finally{ setBtnLoading('btnSalvarDespesa',false,'💾 Salvar'); }
@@ -852,7 +1063,7 @@ function setBtnLoading(id,loading,label) {
   btn.disabled=loading; btn.textContent=loading?'⏳ Salvando...':(label||'Salvar');
 }
 
-['modalOverlay','loteModalOverlay','estModalOverlay','despModalOverlay'].forEach(id=>{
+['modalOverlay','loteModalOverlay','estModalOverlay','despModalOverlay','etiquetaModalOverlay'].forEach(id=>{
   document.getElementById(id).addEventListener('click',function(e){ if(e.target===this) this.classList.remove('open'); });
 });
 
@@ -860,6 +1071,47 @@ function setBtnLoading(id,loading,label) {
 // Funções globais — acessíveis diretamente pelo HTML (script normal, sem module)
 
 // =============================================================================
-// INICIALIZAÇÃO
+// AUTENTICAÇÃO (Supabase Auth)
 // =============================================================================
-loadAllData();
+// O app só carrega dados depois de confirmado um usuário autenticado.
+// As policies RLS no banco exigem auth.role() = 'authenticated' (ver banco.sql).
+function showLoginOverlay(show) {
+  document.getElementById('loginOverlay').style.display = show ? 'flex' : 'none';
+}
+
+async function fazerLogin(e) {
+  if (e) e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const senha = document.getElementById('loginSenha').value;
+  const btn   = document.getElementById('btnLogin');
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  try {
+    const { error } = await db.auth.signInWithPassword({ email, password: senha });
+    if (error) throw error;
+    // onAuthStateChange cuida de esconder o overlay e iniciar o carregamento
+  } catch (err) {
+    errEl.textContent = 'E-mail ou senha inválidos.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+  return false;
+}
+
+async function fazerLogout() {
+  await db.auth.signOut();
+}
+
+let appIniciado = false;
+db.auth.onAuthStateChange((_event, session) => {
+  if (session) {
+    showLoginOverlay(false);
+    if (!appIniciado) { appIniciado = true; loadAllData(); }
+  } else {
+    appIniciado = false;
+    showLoading(false);
+    showLoginOverlay(true);
+  }
+});

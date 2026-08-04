@@ -39,7 +39,8 @@
     </div>
   </nav>
   <div class="sidebar-footer">
-    🌾 Granja Demo &nbsp;·&nbsp; Atualizado agora
+    🌾 Granja Ovos da Serra &nbsp;·&nbsp; Atualizado agora
+    <button onclick="fazerLogout()" title="Sair" style="margin-left:10px;background:none;border:none;color:#6b7593;cursor:pointer;font-size:13px;text-decoration:underline">Sair</button>
   </div>
 </div>
 
@@ -51,7 +52,7 @@
     <div class="topbar">
       <div>
         <div class="page-title" id="inicioBemVindo">Bom dia! 🌾</div>
-        <div class="page-subtitle">Visão geral da Granja Demo</div>
+        <div class="page-subtitle">Visão geral da Granja Ovos da Serra</div>
       </div>
       <button class="btn btn-primary" onclick="navigate('producao');openModal()">
         ＋ Registrar Produção
@@ -82,6 +83,19 @@
         <div class="stat-label">Ovos Quebrados</div>
         <div class="stat-value red" id="iStatQuebra">—</div>
         <div class="stat-sub">total hoje</div>
+      </div>
+    </div>
+
+    <!-- SOL DO DIA -->
+    <div style="margin-bottom:24px;padding:16px;background:linear-gradient(135deg,rgba(255,193,7,0.1),rgba(255,152,0,0.1));border-radius:12px;border-left:4px solid #FFB613;display:flex;align-items:center;gap:16px">
+      <div style="font-size:48px">☀️</div>
+      <div>
+        <div style="font-weight:600;color:var(--text);margin-bottom:4px">Luz Solar Hoje</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
+          <div><span style="color:var(--muted)"> Nascer:</span> <b id="iSunrise">— </b></div>
+          <div><span style="color:var(--muted)"> Pôr:</span> <b id="iSunset">—</b></div>
+          <div><span style="color:var(--muted)"> Duração:</span> <b id="iSunDuration">—</b></div>
+        </div>
       </div>
     </div>
 
@@ -410,7 +424,7 @@
       <div class="card-header"><div class="card-title">Lista de Despesas</div></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Valor</th></tr></thead>
+          <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Lote</th><th>Valor</th></tr></thead>
           <tbody id="despBody"></tbody>
         </table>
         <div class="empty" id="emptyDesp" style="display:none">
@@ -484,6 +498,19 @@
         <input type="text" class="form-input" id="lRaca" placeholder="ex: Hy-Line Brown">
       </div>
     </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="lInformacoes">Informações Adicionais</label>
+        <input type="text" class="form-input" id="lInformacoes" placeholder="Observações sobre o lote...">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="lDocumento">Anexar Documento</label>
+        <input type="file" class="form-input" id="lDocumento" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onchange="document.getElementById('lMargemDocumento').innerText = this.files[0] ? '✓ '+this.files[0].name : ''">
+        <div id="lMargemDocumento" style="font-size:12px;color:var(--green);margin-top:6px;font-weight:500"></div>
+      </div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeLoteModal()">Cancelar</button>
       <button class="btn btn-primary" id="btnSalvarLote" onclick="salvarLote()">💾 Salvar</button>
@@ -555,9 +582,43 @@
         <input type="number" class="form-input" id="dValor" placeholder="0,00" min="0" step="0.01">
       </div>
     </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="dLote">Lote (opcional)</label>
+        <select class="form-select" id="dLote">
+          <option value="">Geral (rateado entre todos os lotes)</option>
+        </select>
+      </div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeDespModal()">Cancelar</button>
       <button class="btn btn-primary" id="btnSalvarDespesa" onclick="salvarDespesa()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ETIQUETA / QR DE RASTREABILIDADE -->
+<div class="modal-overlay" id="etiquetaModalOverlay">
+  <div class="modal">
+    <div class="modal-title">Etiqueta de Rastreabilidade</div>
+    <div class="modal-sub">Gere o QR Code "do ninho à mesa" para colar na caixa de ovos</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="etLote">Lote</label>
+        <select class="form-select" id="etLote" onchange="atualizarDatasEtiqueta();gerarEtiquetaPreview();"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="etData">Data da coleta</label>
+        <select class="form-select" id="etData" onchange="gerarEtiquetaPreview();"></select>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:center;margin:16px 0">
+      <div id="etiquetaPreview"></div>
+    </div>
+    <div class="modal-footer" style="flex-wrap:wrap;gap:8px">
+      <button class="btn btn-ghost" onclick="closeEtiquetaModal()">Fechar</button>
+      <button class="btn btn-ghost" onclick="baixarQR()">⬇️ Baixar QR</button>
+      <button class="btn btn-primary" onclick="imprimirEtiqueta()">🖨️ Imprimir</button>
     </div>
   </div>
 </div>
@@ -701,11 +762,36 @@
 </div>
 <style>@keyframes spin { to { transform:rotate(360deg); } }</style>
 
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay" style="
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:rgba(15,17,23,0.98); backdrop-filter:blur(8px);
+  flex-direction:column; align-items:center; justify-content:center; gap:16px;
+  font-family:'Sora',sans-serif;">
+  <div style="font-size:40px">🥚</div>
+  <div style="color:#e8ecf4; font-size:18px; font-weight:700;">GranjaControl</div>
+  <div style="color:#6b7593; font-size:12px; margin-bottom:8px;">Entre para acessar o sistema</div>
+  <form id="loginForm" onsubmit="return fazerLogin(event)" style="width:90%; max-width:320px; display:flex; flex-direction:column; gap:10px;">
+    <input id="loginEmail" type="email" placeholder="E-mail" autocomplete="username" required style="
+      padding:12px 14px; border-radius:8px; border:1px solid #2a3048; background:#1f2435; color:#e8ecf4; font-family:'Sora',sans-serif; font-size:13px;">
+    <input id="loginSenha" type="password" placeholder="Senha" autocomplete="current-password" required style="
+      padding:12px 14px; border-radius:8px; border:1px solid #2a3048; background:#1f2435; color:#e8ecf4; font-family:'Sora',sans-serif; font-size:13px;">
+    <button id="btnLogin" type="submit" style="
+      margin-top:6px; padding:11px; background:linear-gradient(135deg,#f5a623,#e8621a);
+      border:none; border-radius:8px; color:#fff; font-family:'Sora',sans-serif; font-weight:600; font-size:13px; cursor:pointer;">
+      Entrar
+    </button>
+    <div id="loginError" style="display:none; color:#ff4757; font-size:12px; text-align:center;"></div>
+  </form>
+</div>
+
 <!-- SCRIPTS -->
 <!-- Chart.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <!-- Supabase JS (UMD — funciona sem import/export) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<!-- QR Code (rastreabilidade) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- Suas credenciais — edite este arquivo -->
 <script src="supabase.config.js"></script>
 <!-- Lógica da aplicação -->
