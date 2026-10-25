@@ -266,6 +266,17 @@ R: Sim! A cor 1 é laranja, cor 2 é verde, etc. (ordem de cadastro)
 
 ---
 
+## 🌽 Controle diário de ração por lote
+
+1. No Supabase, execute o arquivo `ATUALIZACAO_CONTROLE_RACAO.sql` para adicionar o campo de nascimento/eclosão aos lotes existentes.
+2. Na página **Lotes**, use **Nascimento** para informar essa data nos lotes já cadastrados. Para novos lotes, preencha a data de nascimento/eclosão no cadastro.
+3. Na página **Lotes**, consulte a necessidade estimada de ração diária para cada lote, calculada conforme a semana de idade, as aves do lote e as mortalidades registradas.
+4. Na aba **Ração**, use **Registrar Fornecimento**, escolha a data e o lote. O sistema sugere a quantidade diária em kg e o tipo de ração; ajuste a quantidade, se necessário, para registrar o fornecimento real.
+
+O cálculo usa a tabela de consumo em gramas por ave/dia informada para as semanas 1 a 100. Lotes sem nascimento informado ou com mais de 100 semanas não recebem estimativa automática.
+
+---
+
 ## 📱 Navegação Rápida
 
 ```
@@ -281,8 +292,12 @@ R: Sim! A cor 1 é laranja, cor 2 é verde, etc. (ordem de cadastro)
   └─ Histórico Detalhado          ← MELHORADO! Com lotes
 
 🐔 Lotes (Gerenciar)
-  └─ Novo Lote / Remover Lote
+  ├─ Novo Lote / Remover Lote
+  └─ Data de nascimento/eclosão para o controle de ração
 
+🌽 Ração
+  ├─ Necessidade diária estimada por lote
+  └─ Registrar fornecimento diário
 💰 Despesas
 📦 Estoque
 📈 Relatórios

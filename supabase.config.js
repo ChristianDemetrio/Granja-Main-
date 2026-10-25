@@ -6,5 +6,5 @@
 // 3. Cole abaixo e salve o arquivo
 // =============================================================================
 
-const SUPABASE_URL  = 'https://ungfgdzwtjjmcumbqbpp.supabase.co';   // ← substitua
-const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuZ2ZnZHp3dGpqbWN1bWJxYnBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyOTY2NzQsImV4cCI6MjA4ODg3MjY3NH0.Fm86uyrsD0hNKlnPs8Sa6rWFsEuWuRPnBBROuS-5Qfc';                  // ← substitua
+const SUPABASE_URL  = 'https://jqkqhijhqjiedhxfocyt.supabase.co';   // ← substitua pelo do novo projeto (ex: GranjaControl_v3)
+const SUPABASE_KEY  = 'sb_publishable_asjbg8s0Av25y1pkjEmSpg_PTWAh24g';               // ← substitua pelo do novo projeto

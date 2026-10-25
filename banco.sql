@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS lotes (
   nome            TEXT        NOT NULL,
   galinhas        INTEGER     NOT NULL CHECK (galinhas > 0),
   data            DATE        NOT NULL,
+  data_nascimento DATE,
   raca            TEXT        NOT NULL DEFAULT 'Não informada',
   documento_url   TEXT,
   informacoes     TEXT,
@@ -59,6 +60,9 @@ CREATE TABLE IF NOT EXISTS despesas (
   descricao  TEXT        NOT NULL,
   valor      NUMERIC(10,2) NOT NULL CHECK (valor > 0),
   lote_id    BIGINT      REFERENCES lotes(id) ON DELETE SET NULL, -- opcional: vincula o custo a um lote específico (ração, vacina, etc.); NULL = despesa geral da granja
+  racao_tipo     TEXT,          -- 'Inicial' | 'Crescimento' | 'Poedeira' — só quando cat = 'Ração' (entrada no estoque de ração)
+  racao_peso_kg  NUMERIC(10,2), -- peso total comprado, em kg
+  racao_valor_kg NUMERIC(10,4), -- valor pago por quilo nessa compra
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -77,6 +81,48 @@ CREATE TABLE IF NOT EXISTS mortalidade (
 
 
 -- ============================================================
+-- TABELA: clientes
+-- Cadastro de clientes para o controle de vendas
+-- ============================================================
+CREATE TABLE IF NOT EXISTS clientes (
+  id         BIGSERIAL   PRIMARY KEY,
+  nome       TEXT        NOT NULL,
+  contato    TEXT,
+  tipo       TEXT        NOT NULL DEFAULT 'Avulso',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- TABELA: vendas
+-- Vendas com cliente vinculado e status de pagamento
+-- ============================================================
+CREATE TABLE IF NOT EXISTS vendas (
+  id              BIGSERIAL     PRIMARY KEY,
+  data            DATE          NOT NULL,
+  cliente_id      BIGINT        REFERENCES clientes(id) ON DELETE SET NULL,
+  qtd             INTEGER       NOT NULL CHECK (qtd > 0),
+  preco_duzia     NUMERIC(10,2),
+  valor_total     NUMERIC(10,2) NOT NULL CHECK (valor_total >= 0),
+  forma_pagamento TEXT          NOT NULL DEFAULT 'Dinheiro',
+  status          TEXT          NOT NULL DEFAULT 'pago' CHECK (status IN ('pago','pendente')),
+  descricao       TEXT,
+  created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- TABELA: racao_consumo
+-- Fornecimento diário de ração por lote (saída do estoque de ração)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS racao_consumo (
+  id            BIGSERIAL     PRIMARY KEY,
+  data          DATE          NOT NULL,
+  lote_id       BIGINT        NOT NULL REFERENCES lotes(id) ON DELETE CASCADE,
+  tipo          TEXT          NOT NULL CHECK (tipo IN ('Inicial','Crescimento','Poedeira')),
+  quantidade_kg NUMERIC(10,2) NOT NULL CHECK (quantidade_kg > 0),
+  created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
 -- ROW LEVEL SECURITY (RLS)
 -- Acesso liberado apenas para usuários autenticados via Supabase Auth
 -- (login criado em Authentication → Users no painel do Supabase).
@@ -87,6 +133,9 @@ ALTER TABLE producao    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saidas      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE despesas    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mortalidade ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clientes    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vendas      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE racao_consumo ENABLE ROW LEVEL SECURITY;
 
 -- Remove policies antigas se existirem (inclusive as antigas de acesso público)
 DROP POLICY IF EXISTS "acesso_publico_lotes" ON lotes;
@@ -99,6 +148,9 @@ DROP POLICY IF EXISTS "acesso_autenticado_producao" ON producao;
 DROP POLICY IF EXISTS "acesso_autenticado_saidas" ON saidas;
 DROP POLICY IF EXISTS "acesso_autenticado_despesas" ON despesas;
 DROP POLICY IF EXISTS "acesso_autenticado_mortalidade" ON mortalidade;
+DROP POLICY IF EXISTS "acesso_autenticado_clientes" ON clientes;
+DROP POLICY IF EXISTS "acesso_autenticado_vendas" ON vendas;
+DROP POLICY IF EXISTS "acesso_autenticado_racao_consumo" ON racao_consumo;
 
 -- Cria policies restritas a usuários logados (auth.role() = 'authenticated')
 CREATE POLICY "acesso_autenticado_lotes"        ON lotes        FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
@@ -106,6 +158,9 @@ CREATE POLICY "acesso_autenticado_producao"     ON producao     FOR ALL USING (a
 CREATE POLICY "acesso_autenticado_saidas"       ON saidas       FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "acesso_autenticado_despesas"     ON despesas     FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "acesso_autenticado_mortalidade"  ON mortalidade  FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "acesso_autenticado_clientes"     ON clientes     FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "acesso_autenticado_vendas"       ON vendas       FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "acesso_autenticado_racao_consumo" ON racao_consumo FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
 
 -- ============================================================
@@ -118,6 +173,13 @@ CREATE INDEX IF NOT EXISTS idx_despesas_data       ON despesas(data);
 CREATE INDEX IF NOT EXISTS idx_mortalidade_lote_id ON mortalidade(lote_id);
 CREATE INDEX IF NOT EXISTS idx_mortalidade_data    ON mortalidade(data);
 CREATE INDEX IF NOT EXISTS idx_despesas_lote_id     ON despesas(lote_id);
+CREATE INDEX IF NOT EXISTS idx_vendas_data          ON vendas(data);
+CREATE INDEX IF NOT EXISTS idx_vendas_cliente_id    ON vendas(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_vendas_status        ON vendas(status);
+CREATE INDEX IF NOT EXISTS idx_clientes_nome        ON clientes(nome);
+CREATE INDEX IF NOT EXISTS idx_racao_consumo_data    ON racao_consumo(data);
+CREATE INDEX IF NOT EXISTS idx_racao_consumo_lote_id ON racao_consumo(lote_id);
+CREATE INDEX IF NOT EXISTS idx_racao_consumo_tipo    ON racao_consumo(tipo);
 
 
 -- ============================================================

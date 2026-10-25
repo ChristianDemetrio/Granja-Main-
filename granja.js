@@ -15,10 +15,18 @@ const FARM_NAME_APP = 'Granja Ovos da Serra';
 const FARM_LOC_APP  = 'São Pedro, SP';
 const DEFAULT_LAT = -22.7297; // Piracicaba
 const DEFAULT_LON = -47.6483; // Piracicaba
+const RACAO_TIPOS = ['Inicial', 'Crescimento', 'Poedeira'];
+const RACAO_LIMITE_ALERTA = 20; // kg — abaixo disso, mostra aviso de reposição
+const RACAO_GRAMAS_POR_SEMANA = {
+  1: 12, 2: 18, 3: 26, 4: 33, 5: 38, 6: 43, 7: 47, 8: 51,
+  9: 55, 10: 59, 11: 62, 12: 65, 13: 73, 14: 76, 15: 79,
+  16: 82, 17: 85, 18: 90, 19: 93, 20: 97, 21: 104, 22: 110, 23: 112
+};
 
 // ========== STATE (cache em memória) ==========
-let state = { lotes: [], producao: [], saidas: [], despesas: [], mortalidade: [], sunData: null };
+let state = { lotes: [], producao: [], saidas: [], despesas: [], mortalidade: [], clientes: [], vendas: [], racaoConsumo: [], sunData: null };
 let currentProdDays = 7; // Armazenar dias atual para o gráfico de produção
+let loteNascimentoEditandoId = null;
 
 // =============================================================================
 // API — NASCER E PÔR DO SOL
@@ -78,8 +86,14 @@ const DB = {
   },
   async insertLote(l) {
     const { data, error } = await db.from('lotes')
-      .insert([{ nome: l.nome, galinhas: l.galinhas, data: l.data, raca: l.raca, documento_url: l.documento_url || null, informacoes: l.informacoes || null }])
+      .insert([{ nome: l.nome, galinhas: l.galinhas, data: l.data, data_nascimento: l.data_nascimento, raca: l.raca, documento_url: l.documento_url || null, informacoes: l.informacoes || null }])
       .select().single();
+    if (error) throw error;
+    return data;
+  },
+  async updateLoteDataNascimento(id, data_nascimento) {
+    const { data, error } = await db.from('lotes')
+      .update({ data_nascimento }).eq('id', id).select().single();
     if (error) throw error;
     return data;
   },
@@ -146,10 +160,86 @@ const DB = {
   },
   async insertDespesa(d) {
     const { data, error } = await db.from('despesas')
-      .insert([{ data: d.data, cat: d.cat, descricao: d.descricao, valor: d.valor, lote_id: d.lote_id || null }])
+      .insert([{
+        data: d.data, cat: d.cat, descricao: d.descricao, valor: d.valor, lote_id: d.lote_id || null,
+        racao_tipo: d.racao_tipo || null, racao_peso_kg: d.racao_peso_kg || null, racao_valor_kg: d.racao_valor_kg || null
+      }])
       .select().single();
     if (error) throw error;
     return data;
+  },
+  async updateDespesa(id, d) {
+    const { data, error } = await db.from('despesas')
+      .update({
+        data: d.data, cat: d.cat, descricao: d.descricao, valor: d.valor, lote_id: d.lote_id || null,
+        racao_tipo: d.racao_tipo || null, racao_peso_kg: d.racao_peso_kg || null, racao_valor_kg: d.racao_valor_kg || null
+      })
+      .eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  },
+  async deleteDespesa(id) {
+    const { error } = await db.from('despesas').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // CONTROLE DE RAÇÃO — fornecimento diário por lote (saída do estoque de ração)
+  async getRacaoConsumo() {
+    const { data, error } = await db.from('racao_consumo').select('*').order('data', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  async insertRacaoConsumo(r) {
+    const { data, error } = await db.from('racao_consumo')
+      .insert([{ data: r.data, lote_id: r.lote_id, tipo: r.tipo, quantidade_kg: r.quantidade_kg }])
+      .select().single();
+    if (error) throw error;
+    return data;
+  },
+  async deleteRacaoConsumo(id) {
+    const { error } = await db.from('racao_consumo').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // CLIENTES
+  async getClientes() {
+    const { data, error } = await db.from('clientes').select('*').order('nome');
+    if (error) throw error;
+    return data;
+  },
+  async insertCliente(c) {
+    const { data, error } = await db.from('clientes')
+      .insert([{ nome: c.nome, contato: c.contato || null, tipo: c.tipo || 'Avulso' }])
+      .select().single();
+    if (error) throw error;
+    return data;
+  },
+  async deleteCliente(id) {
+    const { error } = await db.from('clientes').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // VENDAS
+  async getVendas() {
+    const { data, error } = await db.from('vendas').select('*').order('data', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  async insertVenda(v) {
+    const { data, error } = await db.from('vendas')
+      .insert([{ data: v.data, cliente_id: v.cliente_id || null, qtd: v.qtd, preco_duzia: v.preco_duzia || null, valor_total: v.valor_total, forma_pagamento: v.forma_pagamento, status: v.status, descricao: v.descricao || null }])
+      .select().single();
+    if (error) throw error;
+    return data;
+  },
+  async updateVendaStatus(id, status) {
+    const { data, error } = await db.from('vendas').update({ status }).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  },
+  async deleteVenda(id) {
+    const { error } = await db.from('vendas').delete().eq('id', id);
+    if (error) throw error;
   }
 };
 
@@ -175,18 +265,49 @@ async function loadAllData() {
     const producao = await DB.getProducao();
 
     showLoading(true, 'Carregando estoque, despesas e mortalidade...', '');
-    const [saidas, despesas, mortalidade] = await Promise.all([DB.getSaidas(), DB.getDespesas(), DB.getMortalidade()]);
+    const [saidas, despesas, mortalidade, clientes, vendas, racaoConsumo] = await Promise.all([
+      DB.getSaidas(), DB.getDespesas(), DB.getMortalidade(), DB.getClientes(), DB.getVendas(), DB.getRacaoConsumo()
+    ]);
 
     state.lotes      = lotes;
     state.producao   = producao.map(p => ({ ...p, lote: p.lote_id }));
     state.saidas     = saidas;
     state.despesas   = despesas;
     state.mortalidade = mortalidade;
+    state.clientes   = clientes;
+    state.vendas     = vendas;
+    state.racaoConsumo = racaoConsumo;
 
     showLoading(false);
     renderInicio();
   } catch (err) {
     showLoadingError(err);
+  }
+}
+
+let currentPage = 'inicio';
+
+async function refreshData(btnId) {
+  const btn = btnId ? document.getElementById(btnId) : null;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Atualizando...'; }
+  try {
+    const [lotes, producao, saidas, despesas, mortalidade, clientes, vendas, racaoConsumo] = await Promise.all([
+      DB.getLotes(), DB.getProducao(), DB.getSaidas(), DB.getDespesas(), DB.getMortalidade(), DB.getClientes(), DB.getVendas(), DB.getRacaoConsumo()
+    ]);
+    state.lotes       = lotes;
+    state.producao    = producao.map(p => ({ ...p, lote: p.lote_id }));
+    state.saidas      = saidas;
+    state.despesas    = despesas;
+    state.mortalidade = mortalidade;
+    state.clientes    = clientes;
+    state.vendas       = vendas;
+    state.racaoConsumo = racaoConsumo;
+    navigate(currentPage);
+    showToast('success', '✅ Dados atualizados!');
+  } catch (err) {
+    showToast('error', '❌ Erro ao atualizar: ' + err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Atualizar'; }
   }
 }
 
@@ -221,6 +342,7 @@ function showLoadingError(err) {
 // NAVEGAÇÃO
 // =============================================================================
 function navigate(page) {
+  currentPage = page;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.querySelectorAll('.bn-item').forEach(n => n.classList.remove('active'));
@@ -236,6 +358,9 @@ function navigate(page) {
   if (page === 'estoque')    renderEstoque();
   if (page === 'relatorios') renderRelatorios();
   if (page === 'despesas')   renderDespesas();
+  if (page === 'vendas')     renderVendas();
+  if (page === 'clientes')   renderClientes();
+  if (page === 'racao')      renderRacao();
 }
 
 // =============================================================================
@@ -249,9 +374,50 @@ function getRecentDates(n) {
 function totalGalinhas() { return state.lotes.reduce((s,l)=>s+l.galinhas,0); }
 function formatNum(n) { return n.toLocaleString('pt-BR'); }
 function fmtDate(d) { const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; }
-function today() { return new Date().toISOString().split('T')[0]; }
+function today() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 function getColorByIdx(i) { return LOT_COLORS[i % LOT_COLORS.length]; }
 function getLoteById(id) { return state.lotes.find(l=>l.id===id); }
+function getRacaoFase(semana) {
+  if (semana <= 2) return { fase: 'Pré-inicial', tipo: 'Inicial' };
+  if (semana <= 6) return { fase: 'Inicial', tipo: 'Inicial' };
+  if (semana <= 12) return { fase: 'Recria 1', tipo: 'Crescimento' };
+  if (semana <= 17) return { fase: 'Recria 2', tipo: 'Crescimento' };
+  if (semana <= 19) return { fase: 'Pré-postura', tipo: 'Poedeira' };
+  if (semana <= 45) return { fase: 'Postura 1', tipo: 'Poedeira' };
+  if (semana <= 70) return { fase: 'Postura 2', tipo: 'Poedeira' };
+  if (semana <= 100) return { fase: 'Postura 3', tipo: 'Poedeira' };
+  return null;
+}
+function getNecessidadeRacaoLote(lote, data) {
+  if (!lote.data_nascimento) return { indisponivel: 'Informe a data de nascimento/eclosão do lote.' };
+  if (!data || data < lote.data_nascimento) return { indisponivel: 'A data do fornecimento é anterior ao nascimento informado.' };
+
+  const nascimento = new Date(`${lote.data_nascimento}T00:00:00Z`);
+  const referencia = new Date(`${data}T00:00:00Z`);
+  const dias = Math.floor((referencia - nascimento) / 86400000);
+  const semana = Math.floor(dias / 7) + 1;
+  const fase = getRacaoFase(semana);
+  if (!fase) return { indisponivel: `A tabela de consumo vai até a semana 100 (lote na semana ${semana}).` };
+
+  const gramasPorAve = RACAO_GRAMAS_POR_SEMANA[semana] || (semana >= 24 ? 114 : null);
+  if (gramasPorAve === null) return { indisponivel: `Não há quantidade cadastrada para a semana ${semana}.` };
+
+  const avesMortas = state.mortalidade
+    .filter(m => m.lote_id === lote.id && m.data <= data)
+    .reduce((total, m) => total + Number(m.quantidade || 0), 0);
+  const avesAtuais = Math.max(0, Number(lote.galinhas) - avesMortas);
+  return {
+    semana,
+    fase: fase.fase,
+    tipo: fase.tipo,
+    gramasPorAve,
+    aves: avesAtuais,
+    quantidadeKg: gramasPorAve * avesAtuais / 1000
+  };
+}
 // Registros de "saída com valor" são gravados na tabela despesas com esse prefixo
 // para representar receita de vendas — não são um custo operacional de fato.
 function isReceita(d) { return (d.descricao || '').startsWith('Receita:'); }
@@ -655,14 +821,20 @@ async function deleteDate(date) {
 // =============================================================================
 function renderLotes() {
   const div=document.getElementById('lotesList'); const empty=document.getElementById('emptyLotes');
+  renderLotesRacaoNecessidade();
   if(state.lotes.length===0){ div.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
 
   // ---- Rentabilidade: agregados compartilhados entre todos os lotes ----
   const totalGalinhasGeral = totalGalinhas();
   const ovosTotalGeral     = state.producao.reduce((s,p)=>s+p.ovos,0);
-  const despesasGeraisTotal = state.despesas.filter(d=>!d.lote_id && !isReceita(d)).reduce((s,d)=>s+d.valor,0);
-  const receitaTotal        = state.despesas.filter(isReceita).reduce((s,d)=>s+d.valor,0);
+  // Despesas de categoria "Ração" ficam de fora do rateio genérico: o custo de ração
+  // é calculado com precisão a partir do que cada lote realmente consumiu (abaixo).
+  const despesasGeraisTotal = state.despesas.filter(d=>!d.lote_id && !isReceita(d) && d.cat!=='Ração').reduce((s,d)=>s+d.valor,0);
+  // Receita = vendas registradas na tabela "vendas" + registros antigos de "Receita:" em despesas (dados de antes deste módulo existir)
+  const receitaTotal        = state.vendas.reduce((s,v)=>s+v.valor_total,0)
+                             + state.despesas.filter(isReceita).reduce((s,d)=>s+d.valor,0);
+  const custoMedioRacaoPorTipo = Object.fromEntries(RACAO_TIPOS.map(t => [t, getCustoMedioRacao(t)]));
 
   div.innerHTML=state.lotes.map((l,i)=>{
     const color=getColorByIdx(i);
@@ -671,9 +843,14 @@ function renderLotes() {
     const totalMortalidade=mortalidadeLote.reduce((s,m)=>s+m.quantidade,0);
 
     // Rentabilidade do lote (rateio proporcional para custos/receitas não vinculados diretamente)
-    const custoDireto   = state.despesas.filter(d=>d.lote_id===l.id && !isReceita(d)).reduce((s,d)=>s+d.valor,0);
+    const consumoRacaoLote = state.racaoConsumo.filter(r=>r.lote_id===l.id);
+    const kgRacaoLote    = consumoRacaoLote.reduce((s,r)=>s+r.quantidade_kg,0);
+    const custoRacaoLote = consumoRacaoLote.reduce((s,r)=>s+(r.quantidade_kg*(custoMedioRacaoPorTipo[r.tipo]||0)),0);
+    const conversaoAlimentar = totalOvosLote>0 ? kgRacaoLote/(totalOvosLote/12) : 0; // kg de ração por dúzia de ovos
+
+    const custoDireto   = state.despesas.filter(d=>d.lote_id===l.id && !isReceita(d) && d.cat!=='Ração').reduce((s,d)=>s+d.valor,0);
     const rateioGeral   = totalGalinhasGeral>0 ? despesasGeraisTotal*(l.galinhas/totalGalinhasGeral) : 0;
-    const custoTotal    = custoDireto + rateioGeral;
+    const custoTotal    = custoDireto + custoRacaoLote + rateioGeral;
     const custoPorAve   = l.galinhas>0 ? custoTotal/l.galinhas : 0;
     const custoPorOvo   = totalOvosLote>0 ? custoTotal/totalOvosLote : 0;
     const receitaEstim  = ovosTotalGeral>0 ? receitaTotal*(totalOvosLote/ovosTotalGeral) : 0;
@@ -683,11 +860,13 @@ function renderLotes() {
       <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
         <div><span style="color:var(--muted)">Custo total</span><br><b>R$ ${custoTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}</b></div>
         <div><span style="color:var(--muted)">Receita rateada</span><br><b>R$ ${receitaEstim.toLocaleString('pt-BR',{minimumFractionDigits:2})}</b></div>
+        <div><span style="color:var(--muted)">Custo ração</span><br><b>R$ ${custoRacaoLote.toLocaleString('pt-BR',{minimumFractionDigits:2})}</b></div>
+        <div><span style="color:var(--muted)">Conversão alim.</span><br><b>${conversaoAlimentar.toFixed(2)} kg/dz</b></div>
         <div><span style="color:var(--muted)">Custo/ave</span><br><b>R$ ${custoPorAve.toLocaleString('pt-BR',{minimumFractionDigits:2})}</b></div>
         <div><span style="color:var(--muted)">Custo/ovo</span><br><b>R$ ${custoPorOvo.toFixed(4)}</b></div>
         <div style="grid-column:span 2"><span style="color:var(--muted)">Lucro estimado</span><br><b style="color:${lucroEstim>=0?'var(--green)':'#ff6b81'}">R$ ${lucroEstim.toLocaleString('pt-BR',{minimumFractionDigits:2})}</b></div>
       </div>
-      <div style="margin-top:6px;color:var(--muted);font-size:10px">Custos/receitas gerais (sem lote definido) são rateados por nº de galinhas e ovos produzidos.</div>
+      <div style="margin-top:6px;color:var(--muted);font-size:10px">Custo de ração calculado pelo consumo real do lote (aba Ração). Demais custos/receitas gerais (sem lote definido) são rateados por nº de galinhas e ovos produzidos.</div>
     </div>`;
     const documentoLabel=l.documento_url?`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"><a href="${encodeURI(l.documento_url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;font-size:12px;padding:6px 10px;background:var(--blue);color:white;border-radius:6px;text-decoration:none;font-weight:500">📎 Ver Documento</a></div>`:'';
     const informacoesLabel=l.informacoes?`<div style="margin-top:8px;padding:10px;background:rgba(77,171,247,0.1);border-radius:8px;font-size:12px;color:var(--text)"><b>ℹ️ Informações:</b><br>${escapeHtmlMultiline(l.informacoes)}</div>`:'';
@@ -700,6 +879,7 @@ function renderLotes() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
         <div><span style="color:var(--muted)">Galinhas</span><br><b>${formatNum(l.galinhas)}</b></div>
         <div><span style="color:var(--muted)">Entrada</span><br><b>${fmtDate(l.data)}</b></div>
+        <div style="grid-column:span 2"><span style="color:var(--muted)">Nascimento/eclosão</span><br><b>${l.data_nascimento ? fmtDate(l.data_nascimento) : 'Não informado'}</b></div>
         <div style="grid-column:span 2"><span style="color:var(--muted)">Total produzido</span><br><b style="color:${color}">${formatNum(totalOvosLote)} ovos</b></div>
         <div style="grid-column:span 2"><span style="color:var(--muted)">Mortalidade Total</span><br><b style="color:#ff6b81">${formatNum(totalMortalidade)} aves</b></div>
       </div>
@@ -708,6 +888,7 @@ function renderLotes() {
       ${mortalidadeLabel}
       ${documentoLabel}
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" style="flex:1;min-width:110px;padding:8px;font-size:12px" onclick="openLoteNascimentoModal(${l.id})">📅 Nascimento</button>
         <button class="btn btn-ghost" style="flex:1;min-width:110px;padding:8px;font-size:12px" onclick="openMortalidadeModal(${l.id})">✏️ Mortalidade</button>
         <button class="btn btn-ghost" style="flex:1;min-width:110px;padding:8px;font-size:12px" onclick="abrirEtiquetaModal(${l.id})">🔖 Etiqueta QR</button>
         <button class="btn btn-ghost" style="flex:1;min-width:110px;padding:8px;font-size:12px" onclick="deleteLote(${l.id})">🗑 Remover</button>
@@ -716,17 +897,19 @@ function renderLotes() {
   }).join('');
 }
 
-function openLoteModal(){ document.getElementById('lNome').value=''; document.getElementById('lGalinhas').value=''; document.getElementById('lData').value=today(); document.getElementById('lRaca').value=''; document.getElementById('lDocumento').value=''; document.getElementById('lInformacoes').value=''; document.getElementById('lMargemDocumento').innerText=''; document.getElementById('loteModalOverlay').classList.add('open'); }
+function openLoteModal(){ document.getElementById('lNome').value=''; document.getElementById('lGalinhas').value=''; document.getElementById('lData').value=today(); document.getElementById('lDataNascimento').value=''; document.getElementById('lDataNascimento').max=today(); document.getElementById('lRaca').value=''; document.getElementById('lDocumento').value=''; document.getElementById('lInformacoes').value=''; document.getElementById('lMargemDocumento').innerText=''; document.getElementById('loteModalOverlay').classList.add('open'); }
 function closeLoteModal(){ document.getElementById('loteModalOverlay').classList.remove('open'); }
 
 async function salvarLote() {
   const nome=document.getElementById('lNome').value.trim();
   const galinhas=parseInt(document.getElementById('lGalinhas').value);
   const data=document.getElementById('lData').value;
+  const data_nascimento=document.getElementById('lDataNascimento').value;
   const raca=document.getElementById('lRaca').value.trim()||'Não informada';
   const informacoes=document.getElementById('lInformacoes').value.trim()||'';
   const documentoFile=document.getElementById('lDocumento').files[0];
-  if(!nome||!galinhas||galinhas<=0||!data){ showToast('error','Preencha todos os campos obrigatórios!'); return; }
+  if(!nome||!galinhas||galinhas<=0||!data||!data_nascimento){ showToast('error','Preencha todos os campos obrigatórios, incluindo o nascimento/eclosão!'); return; }
+  if(data_nascimento > data || data_nascimento > today()){ showToast('error','A data de nascimento/eclosão deve ser anterior ou igual à data de entrada do lote.'); return; }
   setBtnLoading('btnSalvarLote',true,'💾 Salvando...');
   try {
     let documentoUrl=null;
@@ -737,10 +920,44 @@ async function salvarLote() {
       const { data: urlData } = db.storage.from('documentos-lotes').getPublicUrl(nomeArquivo);
       documentoUrl=urlData.publicUrl;
     }
-    const novo=await DB.insertLote({nome,galinhas,data,raca,documento_url:documentoUrl,informacoes});
+    const novo=await DB.insertLote({nome,galinhas,data,data_nascimento,raca,documento_url:documentoUrl,informacoes});
     state.lotes.push(novo); closeLoteModal(); renderLotes(); showToast('success',`✅ Lote "${nome}" cadastrado!`);
   } catch(err){ showToast('error','❌ Erro: '+err.message); }
   finally{ setBtnLoading('btnSalvarLote',false,'💾 Salvar'); }
+}
+
+function openLoteNascimentoModal(id) {
+  const lote = getLoteById(id);
+  if (!lote) { showToast('error', 'Lote não encontrado.'); return; }
+  loteNascimentoEditandoId = id;
+  document.getElementById('loteNascimentoNome').textContent = lote.nome;
+  const input = document.getElementById('loteDataNascimentoEdit');
+  input.value = lote.data_nascimento || '';
+  input.max = lote.data < today() ? lote.data : today();
+  document.getElementById('loteNascimentoModalOverlay').classList.add('open');
+}
+function closeLoteNascimentoModal() {
+  loteNascimentoEditandoId = null;
+  document.getElementById('loteNascimentoModalOverlay').classList.remove('open');
+}
+async function salvarDataNascimentoLote() {
+  const lote = getLoteById(loteNascimentoEditandoId);
+  const data_nascimento = document.getElementById('loteDataNascimentoEdit').value;
+  if (!lote || !data_nascimento) { showToast('error', 'Informe a data de nascimento/eclosão.'); return; }
+  if (data_nascimento > lote.data || data_nascimento > today()) {
+    showToast('error', 'A data deve ser anterior ou igual à entrada do lote.');
+    return;
+  }
+  setBtnLoading('btnSalvarNascimentoLote', true, '💾 Salvar');
+  try {
+    const atualizado = await DB.updateLoteDataNascimento(lote.id, data_nascimento);
+    Object.assign(lote, atualizado);
+    closeLoteNascimentoModal();
+    renderLotes();
+    if (currentPage === 'racao') renderRacao();
+    showToast('success', `✅ Nascimento do lote "${lote.nome}" atualizado!`);
+  } catch (err) { showToast('error', '❌ Erro: ' + err.message); }
+  finally { setBtnLoading('btnSalvarNascimentoLote', false, '💾 Salvar'); }
 }
 
 async function deleteLote(id) {
@@ -773,14 +990,26 @@ function atualizarDatasEtiqueta() {
   const loteId = parseInt(document.getElementById('etLote').value);
   const datas = [...new Set(state.producao.filter(p => p.lote === loteId).map(p => p.data))].sort().reverse();
   const selectData = document.getElementById('etData');
-  selectData.innerHTML = datas.length === 0
+  const opcaoGeral = datas.length === 0
     ? '<option value="">Sem coletas — QR geral do lote</option>'
-    : datas.map(d => `<option value="${d}">${fmtDate(d)}</option>`).join('');
+    : '<option value="">QR geral do lote (sem data)</option>' + datas.map(d => `<option value="${d}">${fmtDate(d)}</option>`).join('');
+  selectData.innerHTML = opcaoGeral + '<option value="__manual__">📅 Escolher outra data...</option>';
+  toggleEtDataManual();
+}
+
+function toggleEtDataManual() {
+  const isManual = document.getElementById('etData').value === '__manual__';
+  const row = document.getElementById('etDataManualRow');
+  row.style.display = isManual ? 'grid' : 'none';
+  if (isManual && !document.getElementById('etDataManual').value) {
+    document.getElementById('etDataManual').value = today();
+  }
 }
 
 function gerarEtiquetaPreview() {
   const loteId = parseInt(document.getElementById('etLote').value);
-  const data = document.getElementById('etData').value;
+  const dataSelecionada = document.getElementById('etData').value;
+  const data = dataSelecionada === '__manual__' ? document.getElementById('etDataManual').value : dataSelecionada;
   const lote = getLoteById(loteId);
   const preview = document.getElementById('etiquetaPreview');
   if (!lote) { preview.innerHTML = ''; return; }
@@ -987,7 +1216,10 @@ function renderDespesas() {
   const despMesTodos=state.despesas.filter(d=>d.data.startsWith(mes));
   const despMes=despMesTodos.filter(d=>!isReceita(d));
   const total=despMes.reduce((s,d)=>s+d.valor,0);
-  const receitas=despMesTodos.filter(isReceita).reduce((s,d)=>s+d.valor,0);
+  // Receita = registros "Receita:" antigos em despesas + vendas registradas na tabela "vendas" (inclui PIX, Cartão, Dinheiro, Fiado)
+  const receitasDespesas=despMesTodos.filter(isReceita).reduce((s,d)=>s+d.valor,0);
+  const receitasVendas=state.vendas.filter(v=>v.data.startsWith(mes)).reduce((s,v)=>s+v.valor_total,0);
+  const receitas=receitasDespesas+receitasVendas;
   document.getElementById('despTotal').textContent='R$ '+total.toLocaleString('pt-BR',{minimumFractionDigits:2});
   document.getElementById('despCustoOvo').textContent='R$ '+receitas.toLocaleString('pt-BR',{minimumFractionDigits:2});
   document.getElementById('despItens').textContent=despMes.length;
@@ -1005,20 +1237,78 @@ function renderDespesas() {
       <td style="font-size:13px">${escapeHtml(d.descricao)}</td>
       <td style="font-size:12px">${loteLabel}</td>
       <td class="td-total" style="color:${corValor}">R$ ${d.valor.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="openDespesaModal(${d.id})">✏️</button>
+        <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="deletarDespesa(${d.id})">🗑</button>
+      </td>
     </tr>`;
   }).join('');
 }
 
-function openDespesaModal(){
-  document.getElementById('dData').value=today(); document.getElementById('dDesc').value=''; document.getElementById('dValor').value='';
+let despesaEditId = null;
+
+function openDespesaModal(id){
+  despesaEditId = id || null;
   const selectLote=document.getElementById('dLote');
   if (selectLote) {
     selectLote.innerHTML = '<option value="">Geral (rateado entre todos os lotes)</option>'
       + state.lotes.map(l=>`<option value="${l.id}">${escapeHtml(l.nome)}</option>`).join('');
   }
+  const titleEl = document.getElementById('despModalTitle');
+  if (despesaEditId) {
+    const d = state.despesas.find(x=>x.id===despesaEditId);
+    if (!d) { despesaEditId=null; }
+    else {
+      if (titleEl) titleEl.textContent='Editar Despesa';
+      document.getElementById('dData').value=d.data;
+      const catSelect=document.getElementById('dCat');
+      if (catSelect && ![...catSelect.options].some(o=>o.value===d.cat)) {
+        catSelect.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(d.cat)}">${escapeHtml(d.cat)}</option>`);
+      }
+      catSelect.value=d.cat;
+      document.getElementById('dDesc').value=d.descricao||'';
+      document.getElementById('dValor').value=d.valor;
+      document.getElementById('dRacaoTipo').value=d.racao_tipo||'Inicial';
+      document.getElementById('dRacaoPeso').value=d.racao_peso_kg||'';
+      document.getElementById('dRacaoValorKg').value=d.racao_valor_kg||'';
+      if (selectLote) selectLote.value=d.lote_id||'';
+      toggleRacaoFields();
+      document.getElementById('despModalOverlay').classList.add('open');
+      return;
+    }
+  }
+  if (titleEl) titleEl.textContent='Nova Despesa';
+  document.getElementById('dData').value=today(); document.getElementById('dDesc').value=''; document.getElementById('dValor').value='';
+  document.getElementById('dCat').value='Ração';
+  document.getElementById('dRacaoTipo').value='Inicial'; document.getElementById('dRacaoPeso').value=''; document.getElementById('dRacaoValorKg').value='';
+  toggleRacaoFields();
   document.getElementById('despModalOverlay').classList.add('open');
 }
-function closeDespModal(){ document.getElementById('despModalOverlay').classList.remove('open'); }
+function closeDespModal(){ document.getElementById('despModalOverlay').classList.remove('open'); despesaEditId=null; }
+
+async function deletarDespesa(id) {
+  if (!confirm('Remover este registro de despesa?')) return;
+  try {
+    await DB.deleteDespesa(id);
+    state.despesas = state.despesas.filter(x=>x.id!==id);
+    renderDespesas();
+    if (typeof renderRacao === 'function' && document.getElementById('page-racao')?.classList.contains('active')) renderRacao();
+    showToast('success','🗑 Despesa removida');
+  } catch (err) { showToast('error','❌ Erro: '+err.message); }
+}
+
+function toggleRacaoFields() {
+  const isRacao = document.getElementById('dCat').value === 'Ração';
+  document.getElementById('dRacaoFields').style.display = isRacao ? 'block' : 'none';
+}
+
+function calcularValorDespesaRacao() {
+  const peso = parseFloat(document.getElementById('dRacaoPeso').value) || 0;
+  const valorKg = parseFloat(document.getElementById('dRacaoValorKg').value) || 0;
+  if (peso > 0 && valorKg > 0) {
+    document.getElementById('dValor').value = (peso * valorKg).toFixed(2);
+  }
+}
 
 async function salvarDespesa() {
   const data=document.getElementById('dData').value;
@@ -1028,12 +1318,388 @@ async function salvarDespesa() {
   const loteIdRaw=document.getElementById('dLote')?.value;
   const lote_id=loteIdRaw?parseInt(loteIdRaw):null;
   if(!data||!valor||valor<=0){ showToast('error','Preencha os campos corretamente!'); return; }
+
+  let racao_tipo=null, racao_peso_kg=null, racao_valor_kg=null;
+  if (cat === 'Ração') {
+    racao_tipo = document.getElementById('dRacaoTipo').value;
+    racao_peso_kg = parseFloat(document.getElementById('dRacaoPeso').value) || null;
+    racao_valor_kg = parseFloat(document.getElementById('dRacaoValorKg').value) || null;
+    if (!racao_peso_kg || racao_peso_kg <= 0) { showToast('error','Informe o peso total comprado (kg)!'); return; }
+  }
+
   setBtnLoading('btnSalvarDespesa',true,'💾 Salvar');
   try {
-    const nova=await DB.insertDespesa({data,cat,descricao,valor,lote_id});
-    state.despesas.push(nova); closeDespModal(); renderDespesas(); showToast('success',`✅ Despesa de R$ ${valor.toFixed(2)} registrada!`);
+    if (despesaEditId) {
+      const atualizada=await DB.updateDespesa(despesaEditId,{data,cat,descricao,valor,lote_id,racao_tipo,racao_peso_kg,racao_valor_kg});
+      const idx=state.despesas.findIndex(x=>x.id===despesaEditId);
+      if (idx>-1) state.despesas[idx]=atualizada;
+      closeDespModal(); renderDespesas();
+      if (typeof renderRacao === 'function' && document.getElementById('page-racao')?.classList.contains('active')) renderRacao();
+      showToast('success',`✅ Despesa atualizada!`);
+    } else {
+      const nova=await DB.insertDespesa({data,cat,descricao,valor,lote_id,racao_tipo,racao_peso_kg,racao_valor_kg});
+      state.despesas.push(nova); closeDespModal(); renderDespesas();
+      if (cat === 'Ração' && typeof renderRacao === 'function' && document.getElementById('page-racao')?.classList.contains('active')) renderRacao();
+      showToast('success',`✅ Despesa de R$ ${valor.toFixed(2)} registrada!`);
+    }
   } catch(err){ showToast('error','❌ Erro: '+err.message); }
   finally{ setBtnLoading('btnSalvarDespesa',false,'💾 Salvar'); }
+}
+
+// =============================================================================
+// RENDER / CRUD CLIENTES
+// =============================================================================
+function renderClientes() {
+  const div = document.getElementById('clientesList');
+  const empty = document.getElementById('emptyClientes');
+  if (state.clientes.length === 0) { div.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  div.innerHTML = state.clientes.map(c => {
+    const totalComprado = state.vendas.filter(v => v.cliente_id === c.id).reduce((s, v) => s + v.valor_total, 0);
+    const pendente = state.vendas.filter(v => v.cliente_id === c.id && v.status === 'pendente').reduce((s, v) => s + v.valor_total, 0);
+    return `<div class="stat-card">
+      <div style="font-size:26px;margin-bottom:8px">👤</div>
+      <div style="font-size:16px;font-weight:800;margin-bottom:4px">${escapeHtml(c.nome)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${escapeHtml(c.tipo)}${c.contato ? ' · ' + escapeHtml(c.contato) : ''}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+        <div><span style="color:var(--muted)">Total comprado</span><br><b style="color:var(--green)">R$ ${totalComprado.toLocaleString('pt-BR',{minimumFractionDigits:2})}</b></div>
+        <div><span style="color:var(--muted)">Pendente</span><br><b style="color:${pendente>0?'#ff6b81':'var(--muted)'}">R$ ${pendente.toLocaleString('pt-BR',{minimumFractionDigits:2})}</b></div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="btn btn-ghost" style="flex:1;padding:8px;font-size:12px" onclick="verHistoricoCliente(${c.id})">📜 Histórico</button>
+        <button class="btn btn-ghost" style="flex:1;padding:8px;font-size:12px" onclick="deletarCliente(${c.id})">🗑 Remover</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function verHistoricoCliente(id) {
+  const cliente = getClienteById(id);
+  if (!cliente) return;
+  document.getElementById('histClienteNome').textContent = cliente.nome;
+  const compras = state.vendas.filter(v => v.cliente_id === id).sort((a,b) => b.data.localeCompare(a.data));
+  const tbody = document.getElementById('histClienteBody');
+  const empty = document.getElementById('emptyHistCliente');
+  if (compras.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    tbody.innerHTML = compras.map(v => {
+      const statusBadge = v.status === 'pago'
+        ? `<span class="stat-badge badge-up">✅ Pago</span>`
+        : `<span class="stat-badge badge-down">⏳ Pendente</span>`;
+      return `<tr>
+        <td class="td-date">${fmtDate(v.data)}</td>
+        <td class="td-total">${formatNum(v.qtd)}</td>
+        <td class="td-total" style="color:var(--green)">R$ ${v.valor_total.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+        <td style="font-size:12px;color:var(--muted)">${escapeHtml(v.forma_pagamento)}</td>
+        <td>${statusBadge}</td>
+      </tr>`;
+    }).join('');
+  }
+  document.getElementById('histClienteModalOverlay').classList.add('open');
+}
+function closeHistClienteModal(){ document.getElementById('histClienteModalOverlay').classList.remove('open'); }
+
+function openClienteModal(){
+  document.getElementById('cNome').value='';
+  document.getElementById('cTipo').value='Avulso';
+  document.getElementById('cContato').value='';
+  document.getElementById('clienteModalOverlay').classList.add('open');
+}
+function closeClienteModal(){ document.getElementById('clienteModalOverlay').classList.remove('open'); }
+
+async function salvarCliente() {
+  const nome = document.getElementById('cNome').value.trim();
+  const tipo = document.getElementById('cTipo').value;
+  const contato = document.getElementById('cContato').value.trim();
+  if (!nome) { showToast('error','Informe o nome do cliente!'); return; }
+  setBtnLoading('btnSalvarCliente', true, '💾 Salvar');
+  try {
+    const novo = await DB.insertCliente({ nome, tipo, contato });
+    state.clientes.push(novo);
+    state.clientes.sort((a,b)=>a.nome.localeCompare(b.nome));
+    closeClienteModal(); renderClientes(); showToast('success', `✅ Cliente "${nome}" cadastrado!`);
+  } catch (err) { showToast('error','❌ Erro: '+err.message); }
+  finally { setBtnLoading('btnSalvarCliente', false, '💾 Salvar'); }
+}
+
+async function deletarCliente(id) {
+  const c = state.clientes.find(x=>x.id===id);
+  if (!confirm(`Remover cliente "${c?.nome}"? As vendas já registradas ficam como "cliente removido".`)) return;
+  try {
+    await DB.deleteCliente(id);
+    state.clientes = state.clientes.filter(x=>x.id!==id);
+    state.vendas.forEach(v=>{ if(v.cliente_id===id) v.cliente_id=null; });
+    renderClientes(); showToast('success','🗑 Cliente removido');
+  } catch (err) { showToast('error','❌ Erro: '+err.message); }
+}
+
+// =============================================================================
+// RENDER / CRUD VENDAS
+// =============================================================================
+function calcularValorVenda() {
+  const qtd = parseInt(document.getElementById('vQtd').value) || 0;
+  const precoDuzia = parseFloat(document.getElementById('vPrecoDuzia').value) || 0;
+  if (qtd > 0 && precoDuzia > 0) {
+    document.getElementById('vValorTotal').value = ((qtd / 12) * precoDuzia).toFixed(2);
+  }
+}
+
+function openVendaModal() {
+  document.getElementById('vData').value = today();
+  document.getElementById('vQtd').value = '';
+  document.getElementById('vPrecoDuzia').value = '';
+  document.getElementById('vValorTotal').value = '';
+  document.getElementById('vFormaPagamento').value = 'Dinheiro';
+  document.getElementById('vStatus').value = 'pago';
+  const selectCliente = document.getElementById('vCliente');
+  selectCliente.innerHTML = '<option value="">Avulso (sem cadastro)</option>'
+    + state.clientes.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+  document.getElementById('vendaModalOverlay').classList.add('open');
+}
+function closeVendaModal(){ document.getElementById('vendaModalOverlay').classList.remove('open'); }
+
+async function salvarVenda() {
+  const data = document.getElementById('vData').value;
+  const clienteIdRaw = document.getElementById('vCliente').value;
+  const cliente_id = clienteIdRaw ? parseInt(clienteIdRaw) : null;
+  const qtd = parseInt(document.getElementById('vQtd').value);
+  const preco_duzia = parseFloat(document.getElementById('vPrecoDuzia').value) || null;
+  const valor_total = parseFloat(document.getElementById('vValorTotal').value);
+  const forma_pagamento = document.getElementById('vFormaPagamento').value;
+  const status = document.getElementById('vStatus').value;
+
+  if (!data || !qtd || qtd <= 0 || isNaN(valor_total) || valor_total < 0) {
+    showToast('error','Preencha os campos corretamente!'); return;
+  }
+  const saldo = state.producao.reduce((s,p)=>s+p.ovos,0) - state.saidas.reduce((s,e)=>s+e.qtd,0);
+  if (qtd > saldo) { showToast('error', `Saldo insuficiente! Estoque atual: ${formatNum(saldo)}`); return; }
+
+  const cliente = cliente_id ? getClienteById(cliente_id) : null;
+  const descricao = `Venda${cliente ? ' — ' + cliente.nome : ' avulsa'}`;
+
+  setBtnLoading('btnSalvarVenda', true, '💾 Salvar');
+  try {
+    const novaVenda = await DB.insertVenda({ data, cliente_id, qtd, preco_duzia, valor_total, forma_pagamento, status, descricao });
+    state.vendas.unshift(novaVenda);
+    // Também dá baixa no estoque (tabela saidas), como uma saída normal
+    const novaSaida = await DB.insertSaida({ data, qtd, descricao });
+    state.saidas.push(novaSaida);
+    closeVendaModal(); renderVendas(); showToast('success', `✅ Venda de ${formatNum(qtd)} ovos registrada!`);
+  } catch (err) { showToast('error','❌ Erro: '+err.message); }
+  finally { setBtnLoading('btnSalvarVenda', false, '💾 Salvar'); }
+}
+
+async function marcarVendaPaga(id) {
+  try {
+    const atualizada = await DB.updateVendaStatus(id, 'pago');
+    const idx = state.vendas.findIndex(v=>v.id===id);
+    if (idx>-1) state.vendas[idx] = atualizada;
+    renderVendas(); showToast('success','✅ Venda marcada como paga');
+  } catch (err) { showToast('error','❌ Erro: '+err.message); }
+}
+
+async function deletarVenda(id) {
+  if (!confirm('Remover esta venda? (isso não devolve o estoque automaticamente)')) return;
+  try {
+    await DB.deleteVenda(id);
+    state.vendas = state.vendas.filter(v=>v.id!==id);
+    renderVendas(); showToast('success','🗑 Venda removida');
+  } catch (err) { showToast('error','❌ Erro: '+err.message); }
+}
+
+function getClienteById(id) { return state.clientes.find(c=>c.id===id); }
+
+function renderVendas() {
+  const mes = new Date().toISOString().slice(0,7);
+  const vendasMes = state.vendas.filter(v => v.data.startsWith(mes));
+  const totalMes = vendasMes.reduce((s,v)=>s+v.valor_total,0);
+  const aReceber = state.vendas.filter(v=>v.status==='pendente').reduce((s,v)=>s+v.valor_total,0);
+  document.getElementById('vdTotalMes').textContent = 'R$ '+totalMes.toLocaleString('pt-BR',{minimumFractionDigits:2});
+  document.getElementById('vdAReceber').textContent = 'R$ '+aReceber.toLocaleString('pt-BR',{minimumFractionDigits:2});
+  document.getElementById('vdQtdMes').textContent = vendasMes.length;
+
+  const tbody = document.getElementById('vendasBody');
+  const empty = document.getElementById('emptyVendas');
+  const sorted = [...state.vendas].sort((a,b)=>b.data.localeCompare(a.data));
+  if (sorted.length === 0) { empty.style.display='block'; tbody.innerHTML=''; return; }
+  empty.style.display='none';
+  tbody.innerHTML = sorted.map(v => {
+    const cliente = v.cliente_id ? getClienteById(v.cliente_id) : null;
+    const nomeCliente = cliente ? escapeHtml(cliente.nome) : '<span style="color:var(--muted)">Avulso</span>';
+    const statusBadge = v.status === 'pago'
+      ? `<span class="stat-badge badge-up">✅ Pago</span>`
+      : `<span class="stat-badge badge-down">⏳ Pendente</span>`;
+    const acaoPagar = v.status === 'pendente'
+      ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="marcarVendaPaga(${v.id})">✅ Marcar pago</button>`
+      : '';
+    return `<tr>
+      <td class="td-date">${fmtDate(v.data)}</td>
+      <td style="font-size:12px">${nomeCliente}</td>
+      <td class="td-total">${formatNum(v.qtd)}</td>
+      <td class="td-total" style="color:var(--green)">R$ ${v.valor_total.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style="font-size:12px;color:var(--muted)">${escapeHtml(v.forma_pagamento)}</td>
+      <td>${statusBadge}</td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap">${acaoPagar}<button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="deletarVenda(${v.id})">🗑</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// =============================================================================
+// CONTROLE DE RAÇÃO — estoque por tipo + fornecimento diário por lote
+// =============================================================================
+
+// Entradas de estoque = compras registradas em Despesas (cat='Ração', com peso/kg)
+function getComprasRacao(tipo) {
+  return state.despesas.filter(d => d.cat === 'Ração' && d.racao_tipo === tipo && d.racao_peso_kg > 0);
+}
+// Saídas de estoque = fornecimento diário registrado para os lotes
+function getConsumoRacao(tipo) {
+  return state.racaoConsumo.filter(r => r.tipo === tipo);
+}
+function getEstoqueRacao(tipo) {
+  const entradas = getComprasRacao(tipo).reduce((s,d)=>s+d.racao_peso_kg, 0);
+  const saidas   = getConsumoRacao(tipo).reduce((s,r)=>s+r.quantidade_kg, 0);
+  return entradas - saidas;
+}
+// Custo médio por kg (média ponderada de todas as compras desse tipo)
+function getCustoMedioRacao(tipo) {
+  const compras = getComprasRacao(tipo);
+  const pesoTotal = compras.reduce((s,d)=>s+d.racao_peso_kg, 0);
+  const valorTotal = compras.reduce((s,d)=>s+d.valor, 0);
+  return pesoTotal > 0 ? valorTotal / pesoTotal : 0;
+}
+
+function renderRacaoEstoqueCards() {
+  const wrap = document.getElementById('racaoEstoqueCards');
+  wrap.innerHTML = RACAO_TIPOS.map(tipo => {
+    const estoque = getEstoqueRacao(tipo);
+    const baixo = estoque < RACAO_LIMITE_ALERTA;
+    return `<div class="stat-card ${baixo?'red':'green'}">
+      <div class="stat-label">${tipo}</div>
+      <div class="stat-value ${baixo?'red':'green'}">${estoque.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} kg</div>
+      <div class="stat-sub">em estoque</div>
+      <div class="stat-badge ${baixo?'badge-down':'badge-up'}">${baixo?'⚠️ repor estoque':'✅ estoque ok'}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderLotesRacaoNecessidade() {
+  const wrap = document.getElementById('lotesRacaoNecessidade');
+  if (state.lotes.length === 0) {
+    wrap.innerHTML = '<div class="empty" style="grid-column:1/-1;padding:18px"><div class="empty-text">Cadastre lotes para calcular a necessidade diária.</div></div>';
+    return;
+  }
+  const data = today();
+  wrap.innerHTML = state.lotes.map(lote => {
+    const necessidade = getNecessidadeRacaoLote(lote, data);
+    if (necessidade.indisponivel) {
+      return `<div class="stat-card orange">
+        <div class="stat-label">${escapeHtml(lote.nome)}</div>
+        <div style="font-size:13px;color:var(--muted);margin:10px 0">${escapeHtml(necessidade.indisponivel)}</div>
+        <button class="btn btn-ghost" style="padding:7px 10px;font-size:11px" onclick="openLoteNascimentoModal(${lote.id})">📅 Informar nascimento</button>
+      </div>`;
+    }
+    return `<div class="stat-card blue">
+      <div class="stat-label">${escapeHtml(lote.nome)} · Semana ${necessidade.semana}</div>
+      <div style="font-size:13px;color:var(--muted);margin:6px 0 10px">${necessidade.fase} · ${necessidade.tipo}</div>
+      <div style="font-size:12px;color:var(--muted)">Aves consideradas</div>
+      <div style="font-size:18px;font-weight:800">${formatNum(necessidade.aves)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:8px">Por ave/dia</div>
+      <div style="font-size:15px;font-weight:700">${necessidade.gramasPorAve} g</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:8px">Necessidade estimada hoje</div>
+      <div style="font-size:20px;font-weight:800;color:var(--blue)">${necessidade.quantidadeKg.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})} kg/dia</div>
+    </div>`;
+  }).join('');
+}
+
+function atualizarRecomendacaoRacao() {
+  const data = document.getElementById('rcData').value;
+  const loteId = parseInt(document.getElementById('rcLote').value);
+  const lote = getLoteById(loteId);
+  const info = document.getElementById('rcRecomendacao');
+  if (!lote) {
+    info.textContent = 'Selecione um lote para calcular a quantidade recomendada.';
+    return;
+  }
+  const necessidade = getNecessidadeRacaoLote(lote, data);
+  if (necessidade.indisponivel) {
+    document.getElementById('rcQtd').value = '';
+    info.textContent = necessidade.indisponivel;
+    return;
+  }
+  if (necessidade.aves === 0) {
+    document.getElementById('rcQtd').value = '';
+    info.textContent = `Semana ${necessidade.semana} · ${necessidade.fase}. O lote não tem aves vivas registradas para esta data.`;
+    return;
+  }
+  document.getElementById('rcTipo').value = necessidade.tipo;
+  document.getElementById('rcQtd').value = necessidade.quantidadeKg.toFixed(2);
+  info.textContent = `Semana ${necessidade.semana} · ${necessidade.fase} · ${necessidade.gramasPorAve} g/ave/dia × ${necessidade.aves} aves = ${necessidade.quantidadeKg.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})} kg para a data selecionada. Ajuste a quantidade para registrar o fornecimento real.`;
+}
+
+function openRacaoConsumoModal() {
+  document.getElementById('rcData').value = today();
+  document.getElementById('rcQtd').value = '';
+  document.getElementById('rcTipo').value = 'Inicial';
+  const selectLote = document.getElementById('rcLote');
+  if (state.lotes.length === 0) {
+    showToast('error','Cadastre um lote primeiro!'); return;
+  }
+  selectLote.innerHTML = state.lotes.map(l=>`<option value="${l.id}">${escapeHtml(l.nome)}</option>`).join('');
+  atualizarRecomendacaoRacao();
+  document.getElementById('racaoConsumoModalOverlay').classList.add('open');
+}
+function closeRacaoConsumoModal(){ document.getElementById('racaoConsumoModalOverlay').classList.remove('open'); }
+
+async function salvarRacaoConsumo() {
+  const data = document.getElementById('rcData').value;
+  const lote_id = parseInt(document.getElementById('rcLote').value);
+  const tipo = document.getElementById('rcTipo').value;
+  const quantidade_kg = parseFloat(document.getElementById('rcQtd').value);
+  if (!data || !lote_id || !quantidade_kg || quantidade_kg <= 0) { showToast('error','Preencha os campos corretamente!'); return; }
+  const estoqueAtual = getEstoqueRacao(tipo);
+  if (quantidade_kg > estoqueAtual) {
+    showToast('error', `Estoque insuficiente de ração ${tipo}! Disponível: ${estoqueAtual.toLocaleString('pt-BR',{maximumFractionDigits:1})} kg`);
+    return;
+  }
+  setBtnLoading('btnSalvarRacaoConsumo', true, '💾 Salvar');
+  try {
+    const novo = await DB.insertRacaoConsumo({ data, lote_id, tipo, quantidade_kg });
+    state.racaoConsumo.unshift(novo);
+    closeRacaoConsumoModal(); renderRacao(); showToast('success', `✅ ${quantidade_kg}kg de ração ${tipo} registrados!`);
+  } catch (err) { showToast('error','❌ Erro: '+err.message); }
+  finally { setBtnLoading('btnSalvarRacaoConsumo', false, '💾 Salvar'); }
+}
+
+async function deletarRacaoConsumo(id) {
+  if (!confirm('Remover este registro de fornecimento?')) return;
+  try {
+    await DB.deleteRacaoConsumo(id);
+    state.racaoConsumo = state.racaoConsumo.filter(r=>r.id!==id);
+    renderRacao(); showToast('success','🗑 Registro removido');
+  } catch (err) { showToast('error','❌ Erro: '+err.message); }
+}
+
+function renderRacao() {
+  renderRacaoEstoqueCards();
+  const tbody = document.getElementById('racaoConsumoBody');
+  const empty = document.getElementById('emptyRacaoConsumo');
+  const sorted = [...state.racaoConsumo].sort((a,b)=>b.data.localeCompare(a.data));
+  if (sorted.length === 0) { empty.style.display='block'; tbody.innerHTML=''; return; }
+  empty.style.display='none';
+  tbody.innerHTML = sorted.map(r => {
+    const lote = getLoteById(r.lote_id);
+    return `<tr>
+      <td class="td-date">${fmtDate(r.data)}</td>
+      <td style="font-size:12px">${lote ? escapeHtml(lote.nome) : '<span style="color:var(--muted)">Lote removido</span>'}</td>
+      <td style="font-size:12px">${escapeHtml(r.tipo)}</td>
+      <td class="td-total">${r.quantidade_kg.toLocaleString('pt-BR',{maximumFractionDigits:2})} kg</td>
+      <td><button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="deletarRacaoConsumo(${r.id})">🗑</button></td>
+    </tr>`;
+  }).join('');
 }
 
 // =============================================================================
@@ -1063,7 +1729,7 @@ function setBtnLoading(id,loading,label) {
   btn.disabled=loading; btn.textContent=loading?'⏳ Salvando...':(label||'Salvar');
 }
 
-['modalOverlay','loteModalOverlay','estModalOverlay','despModalOverlay','etiquetaModalOverlay'].forEach(id=>{
+['modalOverlay','loteModalOverlay','loteNascimentoModalOverlay','estModalOverlay','despModalOverlay','etiquetaModalOverlay','clienteModalOverlay','vendaModalOverlay','racaoConsumoModalOverlay'].forEach(id=>{
   document.getElementById(id).addEventListener('click',function(e){ if(e.target===this) this.classList.remove('open'); });
 });
 
@@ -1092,7 +1758,14 @@ async function fazerLogin(e) {
     if (error) throw error;
     // onAuthStateChange cuida de esconder o overlay e iniciar o carregamento
   } catch (err) {
-    errEl.textContent = 'E-mail ou senha inválidos.';
+    const msg = (err.message || '').toLowerCase();
+    if (msg.includes('email not confirmed')) {
+      errEl.textContent = 'E-mail ainda não confirmado. No Supabase, edite o usuário em Authentication → Users e confirme o e-mail (ou recrie marcando "Auto Confirm User").';
+    } else if (msg.includes('invalid login credentials')) {
+      errEl.textContent = 'E-mail ou senha incorretos — ou este usuário não existe neste projeto Supabase.';
+    } else {
+      errEl.textContent = 'Erro ao entrar: ' + (err.message || 'tente novamente.');
+    }
     errEl.style.display = 'block';
   } finally {
     btn.disabled = false; btn.textContent = 'Entrar';

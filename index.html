@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GranjaControl — Gestão de Produção</title>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Lato:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="granja.css">
 </head>
 <body class="lote-colors">
@@ -12,35 +12,44 @@
 <!-- SIDEBAR -->
 <div class="sidebar">
   <div class="logo">
-    <div class="logo-icon">🥚</div>
+    <div class="logo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3 3.2 6 8 6 11.5a6 6 0 1 1-12 0c0-3.5 3-8.3 6-11.5Z"/></svg></div>
     <div>
       <div class="logo-text">GranjaControl</div>
-      <div class="logo-sub">v2.0</div>
+      <div class="logo-sub">v3.0</div>
     </div>
   </div>
   <nav class="nav">
     <div class="nav-item active" onclick="navigate('inicio')">
-      <span class="nav-icon">🏠</span> Início
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-9"/><path d="M9.5 20v-6h5v6"/></svg></span> Início
     </div>
     <div class="nav-item" onclick="navigate('producao')">
-      <span class="nav-icon">🥚</span> Produção
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3 3.2 6 8 6 11.5a6 6 0 1 1-12 0c0-3.5 3-8.3 6-11.5Z"/></svg></span> Produção
     </div>
     <div class="nav-item" onclick="navigate('despesas')">
-      <span class="nav-icon">💰</span> Despesas
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 7.5v9M15 9.8c0-1.3-1.4-2.3-3-2.3s-3 .9-3 2.1c0 1.2 1 1.7 3 2.1s3 .9 3 2.1c0 1.2-1.4 2.1-3 2.1s-3-1-3-2.3"/></svg></span> Despesas
+    </div>
+    <div class="nav-item" onclick="navigate('vendas')">
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="11" rx="1.5"/><circle cx="12" cy="12" r="2.6"/></svg></span> Vendas
+    </div>
+    <div class="nav-item" onclick="navigate('clientes')">
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7.2-4.5-9.6-9C.7 7.8 2 4.5 5.3 4A5 5 0 0 1 12 7.2 5 5 0 0 1 18.7 4c3.3.5 4.6 3.8 2.9 7C19.2 15.5 12 20 12 20Z"/></svg></span> Clientes
     </div>
     <div class="nav-item" onclick="navigate('estoque')">
-      <span class="nav-icon">📦</span> Estoque
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8 12 3.5 20.5 8v8L12 20.5 3.5 16V8Z"/><path d="M3.5 8 12 12.5 20.5 8M12 12.5V20.5"/></svg></span> Estoque
+    </div>
+    <div class="nav-item" onclick="navigate('racao')">
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V6"/><path d="M12 8c-1.5-1-2-2.5-1.5-4C11.5 4.8 12 6 12 6s.5-1.2 1.5-2c.5 1.5 0 3-1.5 4Z"/><path d="M12 12c-2-.3-3-1.6-3-3.3 1.8 0 3 1 3 3.3ZM12 12c2-.3 3-1.6 3-3.3-1.8 0-3 1-3 3.3Z"/><path d="M12 16c-2-.3-3-1.6-3-3.3 1.8 0 3 1 3 3.3ZM12 16c2-.3 3-1.6 3-3.3-1.8 0-3 1-3 3.3Z"/></svg></span> Ração
     </div>
     <div class="nav-item" onclick="navigate('relatorios')">
-      <span class="nav-icon">📈</span> Relatórios
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V5M16 20v-8"/><path d="M3 20h18"/></svg></span> Relatórios
     </div>
     <div class="nav-item" onclick="navigate('lotes')">
-      <span class="nav-icon">🐔</span> Lotes
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5c0-2 1.8-3.5 3.8-3.2"/><path d="M9.3 5.6c.6-1 1.9-1.4 3-.9"/><path d="M8.5 8c1.7-1.3 4.3-1 5.8.8 1 .9 1.7 1 2.7.6l1.5-.6-.8 1.7 1 1.4-1.8.1c0 2.3-1.5 4.3-3.7 5"/><path d="M13.2 16.6c-3 1-6.4-.5-7.6-3.3-.9-2.2-.2-4.7 1.6-6.2"/><path d="M9.8 17 9 20M13.5 16.6 13 20"/><circle cx="14.3" cy="9.6" r=".4" fill="currentColor" stroke="none"/></svg></span> Lotes
     </div>
   </nav>
   <div class="sidebar-footer">
     🌾 Granja Ovos da Serra &nbsp;·&nbsp; Atualizado agora
-    <button onclick="fazerLogout()" title="Sair" style="margin-left:10px;background:none;border:none;color:#6b7593;cursor:pointer;font-size:13px;text-decoration:underline">Sair</button>
+    <button onclick="fazerLogout()" title="Sair" style="margin-left:10px;background:none;border:none;color:#8A7A63;cursor:pointer;font-size:13px;text-decoration:underline">Sair</button>
   </div>
 </div>
 
@@ -102,19 +111,19 @@
     <!-- QUICK ACTIONS -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
       <div class="quick-action" onclick="navigate('producao');openModal()">
-        <div class="qa-icon" style="background:rgba(245,166,35,0.15);color:var(--accent)">🥚</div>
+        <div class="qa-icon" style="background:rgba(107,122,78,0.15);color:var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3 3.2 6 8 6 11.5a6 6 0 1 1-12 0c0-3.5 3-8.3 6-11.5Z"/></svg></div>
         <div class="qa-label">Registrar Produção</div>
       </div>
       <div class="quick-action" onclick="navigate('lotes');openLoteModal()">
-        <div class="qa-icon" style="background:rgba(46,213,115,0.12);color:var(--green)">🐔</div>
+        <div class="qa-icon" style="background:rgba(76,140,91,0.12);color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5c0-2 1.8-3.5 3.8-3.2"/><path d="M9.3 5.6c.6-1 1.9-1.4 3-.9"/><path d="M8.5 8c1.7-1.3 4.3-1 5.8.8 1 .9 1.7 1 2.7.6l1.5-.6-.8 1.7 1 1.4-1.8.1c0 2.3-1.5 4.3-3.7 5"/><path d="M13.2 16.6c-3 1-6.4-.5-7.6-3.3-.9-2.2-.2-4.7 1.6-6.2"/><path d="M9.8 17 9 20M13.5 16.6 13 20"/><circle cx="14.3" cy="9.6" r=".4" fill="currentColor" stroke="none"/></svg></div>
         <div class="qa-label">Novo Lote</div>
       </div>
       <div class="quick-action" onclick="navigate('estoque');openEstoqueModal()">
-        <div class="qa-icon" style="background:rgba(77,171,247,0.12);color:var(--blue)">📦</div>
+        <div class="qa-icon" style="background:rgba(91,132,166,0.12);color:var(--blue)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8 12 3.5 20.5 8v8L12 20.5 3.5 16V8Z"/><path d="M3.5 8 12 12.5 20.5 8M12 12.5V20.5"/></svg></div>
         <div class="qa-label">Saída de Estoque</div>
       </div>
       <div class="quick-action" onclick="navigate('despesas');openDespesaModal()">
-        <div class="qa-icon" style="background:rgba(255,71,87,0.12);color:var(--red)">💰</div>
+        <div class="qa-icon" style="background:rgba(181,83,60,0.12);color:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 7.5v9M15 9.8c0-1.3-1.4-2.3-3-2.3s-3 .9-3 2.1c0 1.2 1 1.7 3 2.1s3 .9 3 2.1c0 1.2-1.4 2.1-3 2.1s-3-1-3-2.3"/></svg></div>
         <div class="qa-label">Nova Despesa</div>
       </div>
     </div>
@@ -309,10 +318,19 @@
   <div class="page" id="page-lotes">
     <div class="topbar">
       <div>
-        <div class="page-title">Gerenciar Lotes</div>
+        <div class="page-title">Gerenciar Lotes de Aves</div>
         <div class="page-subtitle">Cadastro e controle dos lotes de galinhas</div>
       </div>
       <button class="btn btn-primary" onclick="openLoteModal()">＋ Novo Lote</button>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Necessidade diária de ração por lote</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">Estimativa baseada na idade, no número de aves vivas e no consumo em gramas por ave/dia.</div>
+        </div>
+      </div>
+      <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-bottom:0" id="lotesRacaoNecessidade"></div>
     </div>
     <div id="lotesList" class="stats-grid" style="grid-template-columns:repeat(3,1fr)"></div>
     <div class="empty" id="emptyLotes" style="display:none">
@@ -404,7 +422,10 @@
         <div class="page-title">Despesas</div>
         <div class="page-subtitle">Custos operacionais da granja</div>
       </div>
-      <button class="btn btn-primary" onclick="openDespesaModal()">＋ Nova Despesa</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" id="btnAtualizarDespesas" onclick="refreshData('btnAtualizarDespesas')">🔄 Atualizar</button>
+        <button class="btn btn-primary" onclick="openDespesaModal()">＋ Nova Despesa</button>
+      </div>
     </div>
     <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
       <div class="stat-card red">
@@ -424,7 +445,7 @@
       <div class="card-header"><div class="card-title">Lista de Despesas</div></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Lote</th><th>Valor</th></tr></thead>
+          <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Lote</th><th>Valor</th><th>Ações</th></tr></thead>
           <tbody id="despBody"></tbody>
         </table>
         <div class="empty" id="emptyDesp" style="display:none">
@@ -432,6 +453,85 @@
           <div class="empty-text">Nenhuma despesa registrada.</div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- PAGE: VENDAS -->
+  <div class="page" id="page-vendas">
+    <div class="topbar">
+      <div>
+        <div class="page-title">Vendas</div>
+        <div class="page-subtitle">Controle de vendas e recebimentos</div>
+      </div>
+      <button class="btn btn-primary" onclick="openVendaModal()">＋ Nova Venda</button>
+    </div>
+    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat-card green">
+        <div class="stat-label">Vendido no Mês</div>
+        <div class="stat-value green" id="vdTotalMes">R$ 0</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">A Receber</div>
+        <div class="stat-value red" id="vdAReceber">R$ 0</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">Vendas no Mês</div>
+        <div class="stat-value blue" id="vdQtdMes">0</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Histórico de Vendas</div></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Data</th><th>Cliente</th><th>Qtd</th><th>Valor</th><th>Pagamento</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody id="vendasBody"></tbody>
+        </table>
+        <div class="empty" id="emptyVendas" style="display:none">
+          <div class="empty-icon">💵</div>
+          <div class="empty-text">Nenhuma venda registrada.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: RAÇÃO -->
+  <div class="page" id="page-racao">
+    <div class="topbar">
+      <div>
+        <div class="page-title">Controle de Ração</div>
+        <div class="page-subtitle">Estoque por tipo e fornecimento diário por lote</div>
+      </div>
+      <button class="btn btn-primary" onclick="openRacaoConsumoModal()">＋ Registrar Fornecimento</button>
+    </div>
+    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)" id="racaoEstoqueCards"></div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Fornecimento por Lote</div></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Data</th><th>Lote</th><th>Tipo</th><th>Quantidade</th><th>Ações</th></tr></thead>
+          <tbody id="racaoConsumoBody"></tbody>
+        </table>
+        <div class="empty" id="emptyRacaoConsumo" style="display:none">
+          <div class="empty-icon">🌽</div>
+          <div class="empty-text">Nenhum fornecimento registrado.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: CLIENTES -->
+  <div class="page" id="page-clientes">
+    <div class="topbar">
+      <div>
+        <div class="page-title">Clientes</div>
+        <div class="page-subtitle">Cadastro de clientes e compradores</div>
+      </div>
+      <button class="btn btn-primary" onclick="openClienteModal()">＋ Novo Cliente</button>
+    </div>
+    <div id="clientesList" class="stats-grid" style="grid-template-columns:repeat(3,1fr)"></div>
+    <div class="empty" id="emptyClientes" style="display:none">
+      <div class="empty-icon">👥</div>
+      <div class="empty-text">Nenhum cliente cadastrado.</div>
     </div>
   </div>
 
@@ -491,7 +591,12 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="lData">Data de Entrada</label>
-        <input type="date" class="form-input" id="lData">
+        <input type="date" class="form-input" id="lData" onchange="document.getElementById('lDataNascimento').max=this.value">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="lDataNascimento">Data de Nascimento/Eclosão</label>
+        <input type="date" class="form-input" id="lDataNascimento" required>
+        <div style="font-size:11px;color:var(--muted);margin-top:5px">Usada para calcular a idade e a necessidade diária de ração.</div>
       </div>
       <div class="form-group">
         <label class="form-label" for="lRaca">Raça / Tipo</label>
@@ -518,11 +623,27 @@
   </div>
 </div>
 
+<!-- MODAL: DATA DE NASCIMENTO DO LOTE -->
+<div class="modal-overlay" id="loteNascimentoModalOverlay">
+  <div class="modal">
+    <div class="modal-title">Nascimento/Eclosão do Lote</div>
+    <div class="modal-sub">Lote: <b id="loteNascimentoNome"></b></div>
+    <div class="form-group">
+      <label class="form-label" for="loteDataNascimentoEdit">Data de Nascimento/Eclosão</label>
+      <input type="date" class="form-input" id="loteDataNascimentoEdit">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeLoteNascimentoModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btnSalvarNascimentoLote" onclick="salvarDataNascimentoLote()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: ESTOQUE SAÍDA -->
 <div class="modal-overlay" id="estModalOverlay">
   <div class="modal">
     <div class="modal-title">Registrar Saída</div>
-    <div class="modal-sub">Informe a quantidade de ovos que saiu do estoque</div>
+    <div class="modal-sub">Para perdas/quebras/uso interno. Para vendas, use a aba <b>Vendas</b> — lá você vincula cliente e status de pagamento.</div>
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="eSData">Data</label>
@@ -553,7 +674,7 @@
 <!-- MODAL: DESPESA -->
 <div class="modal-overlay" id="despModalOverlay">
   <div class="modal">
-    <div class="modal-title">Nova Despesa</div>
+    <div class="modal-title" id="despModalTitle">Nova Despesa</div>
     <div class="modal-sub">Registre um custo operacional</div>
     <div class="form-row">
       <div class="form-group">
@@ -562,7 +683,7 @@
       </div>
       <div class="form-group">
         <label class="form-label" for="dCat">Categoria</label>
-        <select class="form-select" id="dCat">
+        <select class="form-select" id="dCat" onchange="toggleRacaoFields()">
           <option>Ração</option>
           <option>Medicamentos</option>
           <option>Mão de Obra</option>
@@ -570,6 +691,28 @@
           <option>Manutenção</option>
           <option>Outros</option>
         </select>
+      </div>
+    </div>
+    <div id="dRacaoFields" style="display:none">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="dRacaoTipo">Tipo de Ração</label>
+          <select class="form-select" id="dRacaoTipo">
+            <option>Inicial</option>
+            <option>Crescimento</option>
+            <option>Poedeira</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="dRacaoPeso">Peso total comprado (kg)</label>
+          <input type="number" class="form-input" id="dRacaoPeso" placeholder="0" min="0" step="0.01" oninput="calcularValorDespesaRacao()">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="dRacaoValorKg">Valor por quilo (R$)</label>
+          <input type="number" class="form-input" id="dRacaoValorKg" placeholder="0,00" min="0" step="0.0001" oninput="calcularValorDespesaRacao()">
+        </div>
       </div>
     </div>
     <div class="form-row">
@@ -597,6 +740,160 @@
   </div>
 </div>
 
+<!-- MODAL: CLIENTE -->
+<div class="modal-overlay" id="clienteModalOverlay">
+  <div class="modal">
+    <div class="modal-title">Novo Cliente</div>
+    <div class="modal-sub">Cadastre um comprador</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="cNome">Nome</label>
+        <input type="text" class="form-input" id="cNome" placeholder="Nome do cliente">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cTipo">Tipo</label>
+        <select class="form-select" id="cTipo">
+          <option>Avulso</option>
+          <option>Feira</option>
+          <option>Mercado</option>
+          <option>Assinatura</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="cContato">Contato (telefone/WhatsApp)</label>
+        <input type="text" class="form-input" id="cContato" placeholder="(00) 00000-0000">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeClienteModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btnSalvarCliente" onclick="salvarCliente()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: HISTÓRICO DE COMPRAS DO CLIENTE -->
+<div class="modal-overlay" id="histClienteModalOverlay">
+  <div class="modal" style="max-height:85vh;overflow-y:auto">
+    <div class="modal-title">Histórico de Compras — <span id="histClienteNome">—</span></div>
+    <div class="modal-sub">Data e quantidade de todas as vendas registradas</div>
+    <div class="table-wrap">
+      <table style="width:100%;font-size:12px">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:8px 0">Data</th>
+            <th style="text-align:left;padding:8px 8px">Quantidade</th>
+            <th style="text-align:left;padding:8px 8px">Valor</th>
+            <th style="text-align:left;padding:8px 8px">Pagamento</th>
+            <th style="text-align:left;padding:8px 8px">Status</th>
+          </tr>
+        </thead>
+        <tbody id="histClienteBody"></tbody>
+      </table>
+      <div id="emptyHistCliente" style="display:none;text-align:center;padding:24px;color:var(--muted);font-size:13px">Nenhuma compra registrada ainda.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeHistClienteModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NOVA VENDA -->
+<div class="modal-overlay" id="vendaModalOverlay">
+  <div class="modal">
+    <div class="modal-title">Nova Venda</div>
+    <div class="modal-sub">Registre uma venda de ovos (também dá baixa no estoque)</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="vData">Data</label>
+        <input type="date" class="form-input" id="vData">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="vCliente">Cliente</label>
+        <select class="form-select" id="vCliente">
+          <option value="">Avulso (sem cadastro)</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="vQtd">Quantidade de ovos</label>
+        <input type="number" class="form-input" id="vQtd" placeholder="0" min="1" oninput="calcularValorVenda()">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="vPrecoDuzia">Preço por dúzia (R$)</label>
+        <input type="number" class="form-input" id="vPrecoDuzia" placeholder="0,00" min="0" step="0.01" oninput="calcularValorVenda()">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="vValorTotal">Valor total (R$)</label>
+        <input type="number" class="form-input" id="vValorTotal" placeholder="0,00" min="0" step="0.01">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="vFormaPagamento">Forma de pagamento</label>
+        <select class="form-select" id="vFormaPagamento">
+          <option>Dinheiro</option>
+          <option>Pix</option>
+          <option>Cartão</option>
+          <option>Fiado</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="vStatus">Status do pagamento</label>
+        <select class="form-select" id="vStatus">
+          <option value="pago">Pago</option>
+          <option value="pendente">Pendente (a receber)</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeVendaModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btnSalvarVenda" onclick="salvarVenda()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: FORNECIMENTO DIÁRIO DE RAÇÃO -->
+<div class="modal-overlay" id="racaoConsumoModalOverlay">
+  <div class="modal">
+    <div class="modal-title">Registrar Fornecimento de Ração</div>
+    <div class="modal-sub">Dá baixa automática no estoque do tipo escolhido</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="rcData">Data</label>
+        <input type="date" class="form-input" id="rcData" onchange="atualizarRecomendacaoRacao()">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="rcLote">Lote</label>
+        <select class="form-select" id="rcLote" onchange="atualizarRecomendacaoRacao()"></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="rcTipo">Tipo de Ração</label>
+        <select class="form-select" id="rcTipo">
+          <option>Inicial</option>
+          <option>Crescimento</option>
+          <option>Poedeira</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="rcQtd">Quantidade (kg)</label>
+        <input type="number" class="form-input" id="rcQtd" placeholder="0" min="0.01" step="0.01">
+      </div>
+    </div>
+    <div id="rcRecomendacao" role="status" style="padding:10px 12px;margin-bottom:14px;border-radius:8px;background:var(--surface2);font-size:12px;color:var(--text)"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeRacaoConsumoModal()">Cancelar</button>
+      <button class="btn btn-primary" id="btnSalvarRacaoConsumo" onclick="salvarRacaoConsumo()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: ETIQUETA / QR DE RASTREABILIDADE -->
 <div class="modal-overlay" id="etiquetaModalOverlay">
   <div class="modal">
@@ -609,7 +906,13 @@
       </div>
       <div class="form-group">
         <label class="form-label" for="etData">Data da coleta</label>
-        <select class="form-select" id="etData" onchange="gerarEtiquetaPreview();"></select>
+        <select class="form-select" id="etData" onchange="toggleEtDataManual();gerarEtiquetaPreview();"></select>
+      </div>
+    </div>
+    <div class="form-row" id="etDataManualRow" style="display:none">
+      <div class="form-group">
+        <label class="form-label" for="etDataManual">Escolha a data</label>
+        <input type="date" class="form-input" id="etDataManual" onchange="gerarEtiquetaPreview();">
       </div>
     </div>
     <div style="display:flex;justify-content:center;margin:16px 0">
@@ -687,37 +990,55 @@
 <nav class="bottom-nav" id="bottomNav">
   <div class="bn-item active" id="bn-inicio" onclick="navigate('inicio')">
     <div class="bn-icon-wrap">
-      <span class="bn-icon">🏠</span>
+      <span class="bn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-9"/><path d="M9.5 20v-6h5v6"/></svg></span>
     </div>
     <span class="bn-label">Início</span>
   </div>
   <div class="bn-item" id="bn-producao" onclick="navigate('producao')">
     <div class="bn-icon-wrap">
-      <span class="bn-icon">🥚</span>
+      <span class="bn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3 3.2 6 8 6 11.5a6 6 0 1 1-12 0c0-3.5 3-8.3 6-11.5Z"/></svg></span>
     </div>
     <span class="bn-label">Produção</span>
   </div>
   <div class="bn-item" id="bn-despesas" onclick="navigate('despesas')">
     <div class="bn-icon-wrap">
-      <span class="bn-icon">💰</span>
+      <span class="bn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 7.5v9M15 9.8c0-1.3-1.4-2.3-3-2.3s-3 .9-3 2.1c0 1.2 1 1.7 3 2.1s3 .9 3 2.1c0 1.2-1.4 2.1-3 2.1s-3-1-3-2.3"/></svg></span>
     </div>
     <span class="bn-label">Despesas</span>
   </div>
+  <div class="bn-item" id="bn-vendas" onclick="navigate('vendas')">
+    <div class="bn-icon-wrap">
+      <span class="bn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="11" rx="1.5"/><circle cx="12" cy="12" r="2.6"/></svg></span>
+    </div>
+    <span class="bn-label">Vendas</span>
+  </div>
+  <div class="bn-item" id="bn-clientes" onclick="navigate('clientes')">
+    <div class="bn-icon-wrap">
+      <span class="bn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7.2-4.5-9.6-9C.7 7.8 2 4.5 5.3 4A5 5 0 0 1 12 7.2 5 5 0 0 1 18.7 4c3.3.5 4.6 3.8 2.9 7C19.2 15.5 12 20 12 20Z"/></svg></span>
+    </div>
+    <span class="bn-label">Clientes</span>
+  </div>
+  <div class="bn-item" id="bn-racao" onclick="navigate('racao')">
+    <div class="bn-icon-wrap">
+      <span class="bn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V6"/><path d="M12 8c-1.5-1-2-2.5-1.5-4C11.5 4.8 12 6 12 6s.5-1.2 1.5-2c.5 1.5 0 3-1.5 4Z"/><path d="M12 12c-2-.3-3-1.6-3-3.3 1.8 0 3 1 3 3.3ZM12 12c2-.3 3-1.6 3-3.3-1.8 0-3 1-3 3.3Z"/><path d="M12 16c-2-.3-3-1.6-3-3.3 1.8 0 3 1 3 3.3ZM12 16c2-.3 3-1.6 3-3.3-1.8 0-3 1-3 3.3Z"/></svg></span>
+    </div>
+    <span class="bn-label">Ração</span>
+  </div>
   <div class="bn-item" id="bn-estoque" onclick="navigate('estoque')">
     <div class="bn-icon-wrap">
-      <span class="bn-icon">📦</span>
+      <span class="bn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8 12 3.5 20.5 8v8L12 20.5 3.5 16V8Z"/><path d="M3.5 8 12 12.5 20.5 8M12 12.5V20.5"/></svg></span>
     </div>
     <span class="bn-label">Estoque</span>
   </div>
   <div class="bn-item" id="bn-relatorios" onclick="navigate('relatorios')">
     <div class="bn-icon-wrap">
-      <span class="bn-icon">📈</span>
+      <span class="bn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V5M16 20v-8"/><path d="M3 20h18"/></svg></span>
     </div>
     <span class="bn-label">Relatórios</span>
   </div>
   <div class="bn-item" id="bn-lotes" onclick="navigate('lotes')">
     <div class="bn-icon-wrap">
-      <span class="bn-icon">🐔</span>
+      <span class="bn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5c0-2 1.8-3.5 3.8-3.2"/><path d="M9.3 5.6c.6-1 1.9-1.4 3-.9"/><path d="M8.5 8c1.7-1.3 4.3-1 5.8.8 1 .9 1.7 1 2.7.6l1.5-.6-.8 1.7 1 1.4-1.8.1c0 2.3-1.5 4.3-3.7 5"/><path d="M13.2 16.6c-3 1-6.4-.5-7.6-3.3-.9-2.2-.2-4.7 1.6-6.2"/><path d="M9.8 17 9 20M13.5 16.6 13 20"/><circle cx="14.3" cy="9.6" r=".4" fill="currentColor" stroke="none"/></svg></span>
     </div>
     <span class="bn-label">Lotes</span>
   </div>
@@ -729,33 +1050,33 @@
 <!-- LOADING OVERLAY -->
 <div id="loadingOverlay" style="
   display:flex; position:fixed; inset:0; z-index:9998;
-  background:rgba(15,17,23,0.96); backdrop-filter:blur(8px);
+  background:rgba(244,238,228,0.97); backdrop-filter:blur(8px);
   flex-direction:column; align-items:center; justify-content:center; gap:20px;
-  font-family:'Sora',sans-serif;">
+  font-family:'Lato',sans-serif;">
   <div id="loadingSpinner" style="
     width:52px; height:52px; border-radius:50%;
-    border:3px solid rgba(245,166,35,0.2);
-    border-top-color:#f5a623;
+    border:3px solid rgba(107,122,78,0.2);
+    border-top-color:#6B7A4E;
     animation:spin 0.8s linear infinite;">
   </div>
-  <div id="loadingMsg" style="color:#6b7593; font-size:14px; letter-spacing:0.5px;">
+  <div id="loadingMsg" style="color:#8A7A63; font-size:14px; letter-spacing:0.5px;">
     Conectando ao banco de dados...
   </div>
-  <div id="loadingDetail" style="color:#3a4060; font-size:11px; max-width:380px; text-align:center; line-height:1.6;"></div>
-  <div id="loadingError" style="display:none; background:#1f2435; border:1px solid rgba(255,71,87,0.4);
+  <div id="loadingDetail" style="color:#a89880; font-size:11px; max-width:380px; text-align:center; line-height:1.6;"></div>
+  <div id="loadingError" style="display:none; background:#FFFFFF; border:1px solid rgba(181,83,60,0.4);
     border-radius:12px; padding:20px 24px; max-width:440px; width:90%;">
-    <div style="color:#ff4757; font-weight:700; font-size:14px; margin-bottom:12px;">❌ Erro ao conectar</div>
-    <div id="loadingErrorMsg" style="color:#6b7593; font-size:12px; line-height:1.8; font-family:monospace; word-break:break-all;"></div>
-    <div style="margin-top:16px; padding-top:16px; border-top:1px solid #2a3048;">
-      <div style="color:#6b7593; font-size:11px; margin-bottom:8px;">Verifique o arquivo <b style="color:#e8ecf4">supabase.config.js</b>:</div>
-      <div style="color:#4dabf7; font-size:11px; font-family:monospace;">var SUPABASE_URL = 'https://xxx.supabase.co';</div>
-      <div style="color:#4dabf7; font-size:11px; font-family:monospace;">var SUPABASE_KEY = 'eyJ...';</div>
+    <div style="color:#B5533C; font-weight:700; font-size:14px; margin-bottom:12px;">❌ Erro ao conectar</div>
+    <div id="loadingErrorMsg" style="color:#8A7A63; font-size:12px; line-height:1.8; font-family:monospace; word-break:break-all;"></div>
+    <div style="margin-top:16px; padding-top:16px; border-top:1px solid #E2D6BE;">
+      <div style="color:#8A7A63; font-size:11px; margin-bottom:8px;">Verifique o arquivo <b style="color:#3A2E22">supabase.config.js</b>:</div>
+      <div style="color:#5B84A6; font-size:11px; font-family:monospace;">var SUPABASE_URL = 'https://xxx.supabase.co';</div>
+      <div style="color:#5B84A6; font-size:11px; font-family:monospace;">var SUPABASE_KEY = 'eyJ...';</div>
     </div>
     <button onclick="location.reload()" style="
       margin-top:16px; width:100%; padding:10px;
-      background:linear-gradient(135deg,#f5a623,#e8621a);
+      background:linear-gradient(135deg,#6B7A4E,#E9C46A);
       border:none; border-radius:8px; color:#fff;
-      font-family:'Sora',sans-serif; font-weight:600; font-size:13px; cursor:pointer;">
+      font-family:'Lato',sans-serif; font-weight:600; font-size:13px; cursor:pointer;">
       🔄 Tentar novamente
     </button>
   </div>
@@ -765,23 +1086,23 @@
 <!-- LOGIN OVERLAY -->
 <div id="loginOverlay" style="
   display:none; position:fixed; inset:0; z-index:9999;
-  background:rgba(15,17,23,0.98); backdrop-filter:blur(8px);
+  background:rgba(244,238,228,0.98); backdrop-filter:blur(8px);
   flex-direction:column; align-items:center; justify-content:center; gap:16px;
-  font-family:'Sora',sans-serif;">
+  font-family:'Lato',sans-serif;">
   <div style="font-size:40px">🥚</div>
-  <div style="color:#e8ecf4; font-size:18px; font-weight:700;">GranjaControl</div>
-  <div style="color:#6b7593; font-size:12px; margin-bottom:8px;">Entre para acessar o sistema</div>
+  <div style="color:#3A2E22; font-size:20px; font-weight:700; font-family:'Playfair Display',serif;">GranjaControl</div>
+  <div style="color:#8A7A63; font-size:12px; margin-bottom:8px;">Entre para acessar o sistema</div>
   <form id="loginForm" onsubmit="return fazerLogin(event)" style="width:90%; max-width:320px; display:flex; flex-direction:column; gap:10px;">
     <input id="loginEmail" type="email" placeholder="E-mail" autocomplete="username" required style="
-      padding:12px 14px; border-radius:8px; border:1px solid #2a3048; background:#1f2435; color:#e8ecf4; font-family:'Sora',sans-serif; font-size:13px;">
+      padding:12px 14px; border-radius:8px; border:1px solid #E2D6BE; background:#FFFFFF; color:#3A2E22; font-family:'Lato',sans-serif; font-size:13px;">
     <input id="loginSenha" type="password" placeholder="Senha" autocomplete="current-password" required style="
-      padding:12px 14px; border-radius:8px; border:1px solid #2a3048; background:#1f2435; color:#e8ecf4; font-family:'Sora',sans-serif; font-size:13px;">
+      padding:12px 14px; border-radius:8px; border:1px solid #E2D6BE; background:#FFFFFF; color:#3A2E22; font-family:'Lato',sans-serif; font-size:13px;">
     <button id="btnLogin" type="submit" style="
-      margin-top:6px; padding:11px; background:linear-gradient(135deg,#f5a623,#e8621a);
-      border:none; border-radius:8px; color:#fff; font-family:'Sora',sans-serif; font-weight:600; font-size:13px; cursor:pointer;">
+      margin-top:6px; padding:11px; background:linear-gradient(135deg,#6B7A4E,#E9C46A);
+      border:none; border-radius:8px; color:#fff; font-family:'Lato',sans-serif; font-weight:600; font-size:13px; cursor:pointer;">
       Entrar
     </button>
-    <div id="loginError" style="display:none; color:#ff4757; font-size:12px; text-align:center;"></div>
+    <div id="loginError" style="display:none; color:#B5533C; font-size:12px; text-align:center;"></div>
   </form>
 </div>
 
